@@ -2,1357 +2,1052 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#1F4736">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Till">
-<meta name="description" content="Simple point-of-sale app with phone-camera barcode scanning.">
-<title>Till — POS</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>Scanline POS</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 <style>
   :root{
-    --paper:#F6F1E4;
-    --paper-dim:#EDE6D3;
-    --ink:#211E1A;
-    --ink-soft:#5B564C;
-    --forest:#1F4736;
-    --forest-dark:#122A21;
-    --amber:#D9A441;
-    --amber-dark:#B9832E;
-    --brick:#B23A2E;
-    --line: rgba(33,30,26,0.14);
-    --radius: 10px;
+    --ink:#14171F;
+    --ink-2:#1E2230;
+    --paper:#F7F8FA;
+    --panel:#FFFFFF;
+    --line:#E4E7EC;
+    --text:#1B1F27;
+    --text-2:#6B7280;
+    --amber:#F0A202;
+    --amber-dark:#C9820A;
+    --laser:#FF2D2D;
+    --green:#1DB876;
+    --green-bg:#E7F8F1;
+    --red-bg:#FFECEC;
+    --radius:14px;
+    --shadow: 0 1px 2px rgba(20,23,31,0.04), 0 8px 24px -12px rgba(20,23,31,0.18);
   }
   *{box-sizing:border-box;}
-  html,body{margin:0;padding:0;}
+  html,body{height:100%;}
   body{
-    background:var(--forest-dark);
-    font-family:'IBM Plex Sans', sans-serif;
-    color:var(--ink);
-    -webkit-tap-highlight-color: transparent;
-    overscroll-behavior-y: contain;
-  }
-  .mono{font-family:'Space Mono', monospace;}
-
-  #app{
-    max-width:480px;
-    margin:0 auto;
-    min-height:100vh;
+    margin:0;
     background:var(--paper);
-    display:flex;
-    flex-direction:column;
-    position:relative;
-  }
-
-  /* ---- Header ---- */
-  header{
-    background:var(--forest);
-    color:var(--paper);
-    padding:calc(16px + env(safe-area-inset-top)) 18px 14px;
-    position:relative;
-    z-index:2;
-  }
-  .brand-row{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:10px;
-  }
-  .brand{
-    display:flex;
-    align-items:baseline;
-    gap:8px;
-  }
-  .brand .mark{
-    font-family:'Space Mono', monospace;
-    font-weight:700;
-    font-size:20px;
-    letter-spacing:0.5px;
-  }
-  .brand .sub{
-    font-size:11px;
-    color:rgba(246,241,228,0.6);
-    letter-spacing:1.5px;
-    text-transform:uppercase;
-  }
-  .led{
-    background:var(--forest-dark);
-    border:1px solid rgba(246,241,228,0.15);
-    border-radius:6px;
-    padding:6px 10px;
-    text-align:right;
-    min-width:96px;
-  }
-  .led .lbl{
-    font-size:9px;
-    letter-spacing:1.5px;
-    text-transform:uppercase;
-    color:rgba(217,164,65,0.7);
-  }
-  .led .val{
-    font-family:'Space Mono', monospace;
-    font-weight:700;
-    font-size:18px;
-    color:var(--amber);
-    text-shadow:0 0 8px rgba(217,164,65,0.5);
-  }
-  /* barcode stripe divider — signature element */
-  .barcode-stripe{
-    height:10px;
-    margin-top:14px;
-    background-image: repeating-linear-gradient(
-      90deg,
-      var(--paper) 0px, var(--paper) 2px,
-      transparent 2px, transparent 3px,
-      var(--paper) 3px, var(--paper) 4px,
-      transparent 4px, transparent 7px,
-      var(--paper) 7px, var(--paper) 9px,
-      transparent 9px, transparent 10px
-    );
-    opacity:0.85;
-  }
-
-  main{
-    flex:1;
-    padding:16px 16px 90px;
-    overflow-y:auto;
-  }
-
-  h2.section-title{
-    font-family:'Space Mono', monospace;
-    font-size:13px;
-    letter-spacing:1.5px;
-    text-transform:uppercase;
-    color:var(--ink-soft);
-    margin:0 0 10px;
-  }
-
-  /* ---- Nav ---- */
-  nav.tabbar{
-    position:fixed;
-    bottom:0;
-    left:50%;
-    transform:translateX(-50%);
-    width:100%;
-    max-width:480px;
-    background:var(--forest);
-    display:flex;
-    z-index:5;
-    box-shadow:0 -2px 12px rgba(0,0,0,0.2);
-  }
-  nav.tabbar button{
-    flex:1;
-    background:none;
-    border:none;
-    color:rgba(246,241,228,0.55);
-    padding:10px 4px calc(12px + env(safe-area-inset-bottom));
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    gap:4px;
-    font-family:'IBM Plex Sans', sans-serif;
-    font-size:10.5px;
-    letter-spacing:0.5px;
-    text-transform:uppercase;
-    cursor:pointer;
-    position:relative;
-  }
-  nav.tabbar button.active{ color:var(--amber); }
-  nav.tabbar button svg{ width:20px; height:20px; }
-  .badge{
-    position:absolute;
-    top:2px;
-    right:calc(50% - 20px);
-    background:var(--brick);
-    color:var(--paper);
-    font-family:'Space Mono',monospace;
-    font-size:9px;
-    font-weight:700;
-    border-radius:8px;
-    min-width:15px;
-    height:15px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    padding:0 3px;
-  }
-
-  /* ---- Cards ---- */
-  .ticket{
-    background:#fff;
-    border:1px solid var(--line);
-    border-radius:var(--radius);
-    position:relative;
-    margin-bottom:14px;
+    color:var(--text);
+    font-family:'Inter',system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
     overflow:hidden;
   }
-  .ticket::before{
-    content:"";
-    display:block;
-    height:6px;
-    background-image: radial-gradient(circle, var(--paper) 3px, transparent 3.5px);
-    background-size:12px 12px;
-    background-position:top;
-  }
-  .ticket-body{ padding:14px 16px 16px; }
+  h1,h2,h3,.display{font-family:'Space Grotesk',sans-serif;}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  button{font-family:inherit;cursor:pointer;}
+  input,select{font-family:inherit;}
+  ::selection{background:var(--amber);color:var(--ink);}
 
-  /* ---- Scan view ---- */
-  .scan-frame{
-    background:var(--forest-dark);
-    border-radius:var(--radius);
-    overflow:hidden;
-    position:relative;
-    aspect-ratio: 4/3;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-  }
-  .scan-frame video, .scan-frame canvas{
-    width:100%;
-    height:100%;
-    object-fit:cover;
-  }
-  #scanner-viewport{ width:100%; height:100%; position:absolute; inset:0; }
-  #scanner-viewport canvas.drawingBuffer{ display:none !important; }
-  .scan-guide{
-    position:absolute;
-    inset:0;
-    pointer-events:none;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    z-index:3;
-  }
-  .scan-guide .box{
-    width:78%;
-    height:32%;
-    border:2px solid rgba(217,164,65,0.85);
-    border-radius:8px;
-    box-shadow:0 0 0 999px rgba(18,42,33,0.35);
-  }
-  .scan-placeholder{
-    color:rgba(246,241,228,0.55);
-    text-align:center;
-    padding:24px;
-    font-size:13px;
-    line-height:1.5;
-  }
-  .camera-status{
-    text-align:center;
-    font-size:12px;
-    color:var(--ink-soft);
-    margin-top:8px;
-    letter-spacing:0.3px;
-  }
-  .camera-status.live{ color:var(--forest); font-weight:600; }
-  .camera-status.error{ color:var(--brick); font-weight:600; }
+  /* ---------- App shell ---------- */
+  #shell{display:flex;height:100vh;width:100vw;}
 
-  .mode-toggle{
-    display:flex;
-    background:var(--paper-dim);
-    border:1.5px solid var(--line);
-    border-radius:9px;
-    padding:3px;
-    margin-bottom:14px;
-  }
-  .mode-toggle button{
-    flex:1;
-    border:none;
-    background:transparent;
-    padding:9px 8px;
-    border-radius:6px;
-    font-family:'IBM Plex Sans', sans-serif;
-    font-weight:600;
-    font-size:13px;
-    color:var(--ink-soft);
-    cursor:pointer;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    gap:6px;
-  }
-  .mode-toggle button.active{
-    background:var(--forest);
-    color:var(--paper);
-  }
-  .mode-toggle button svg{ width:15px; height:15px; }
-  .paused-note{
-    text-align:center;
-    font-size:12px;
-    color:var(--ink-soft);
-    margin:8px 0 4px;
-  }
-  .flash-hit{
-    position:absolute; inset:0;
-    background:rgba(76,175,80,0.35);
-    z-index:4;
-    animation: flashfade 0.5s ease-out forwards;
-    pointer-events:none;
-  }
-  @keyframes flashfade{ from{opacity:1;} to{opacity:0;} }
+  .barcode-mark{display:flex;align-items:flex-end;gap:2px;height:22px;}
+  .barcode-mark i{display:block;background:var(--amber);width:2px;}
+  .barcode-mark i:nth-child(1){height:100%;}
+  .barcode-mark i:nth-child(2){height:60%;width:3px;}
+  .barcode-mark i:nth-child(3){height:85%;}
+  .barcode-mark i:nth-child(4){height:45%;width:4px;}
+  .barcode-mark i:nth-child(5){height:100%;width:2px;}
+  .barcode-mark i:nth-child(6){height:70%;}
+  .barcode-mark i:nth-child(7){height:50%;width:3px;}
 
+  #sidebar{
+    width:84px;background:var(--ink);flex:0 0 auto;
+    display:flex;flex-direction:column;align-items:center;
+    padding:20px 0;gap:8px;
+  }
+  #sidebar .brand{margin-bottom:22px;display:flex;flex-direction:column;align-items:center;gap:8px;}
+  #sidebar .brand span{color:#fff;font-size:10px;letter-spacing:.14em;font-weight:600;opacity:.7;}
+  .nav-btn{
+    width:56px;height:56px;border:none;border-radius:12px;background:transparent;
+    color:#8A8FA3;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:5px;font-size:10px;font-weight:600;letter-spacing:.02em;transition:all .15s ease;
+  }
+  .nav-btn svg{width:20px;height:20px;stroke:#8A8FA3;transition:stroke .15s ease;}
+  .nav-btn:hover{background:var(--ink-2);color:#fff;}
+  .nav-btn:hover svg{stroke:#fff;}
+  .nav-btn.active{background:var(--ink-2);color:var(--amber);}
+  .nav-btn.active svg{stroke:var(--amber);}
+
+  #main-col{flex:1 1 auto;display:flex;flex-direction:column;min-width:0;}
+  #topbar{
+    height:64px;flex:0 0 auto;background:var(--panel);border-bottom:1px solid var(--line);
+    display:flex;align-items:center;justify-content:space-between;padding:0 24px;
+  }
+  #topbar h1{font-size:18px;margin:0;font-weight:600;}
+  #topbar .sub{font-size:12px;color:var(--text-2);margin-top:1px;}
+  #clock{font-size:12px;color:var(--text-2);}
+
+  #page{flex:1 1 auto;overflow:auto;padding:22px 24px 40px;}
+
+  /* ---------- Buttons ---------- */
   .btn{
-    font-family:'IBM Plex Sans', sans-serif;
-    font-weight:600;
-    font-size:14px;
-    border:none;
-    border-radius:8px;
-    padding:12px 16px;
-    cursor:pointer;
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    gap:8px;
-    width:100%;
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    border-radius:10px;border:1px solid transparent;padding:10px 16px;font-weight:600;font-size:13.5px;
+    transition:transform .1s ease, filter .1s ease;
   }
-  .btn-primary{ background:var(--forest); color:var(--paper); }
-  .btn-primary:active{ background:var(--forest-dark); }
-  .btn-amber{ background:var(--amber); color:var(--forest-dark); }
-  .btn-amber:active{ background:var(--amber-dark); }
-  .btn-ghost{ background:transparent; color:var(--forest); border:1.5px solid var(--line); }
-  .btn-danger{ background:transparent; color:var(--brick); border:1.5px solid rgba(178,58,46,0.3); }
-  .btn-sm{ padding:7px 10px; font-size:12.5px; width:auto; }
-  .row{ display:flex; gap:8px; }
-  .row > *{ flex:1; }
+  .btn:active{transform:scale(.97);}
+  .btn-amber{background:var(--amber);color:var(--ink);}
+  .btn-amber:hover{filter:brightness(1.05);}
+  .btn-dark{background:var(--ink);color:#fff;}
+  .btn-dark:hover{filter:brightness(1.2);}
+  .btn-ghost{background:transparent;color:var(--text);border-color:var(--line);}
+  .btn-ghost:hover{background:var(--paper);}
+  .btn-danger{background:var(--red-bg);color:#C81E1E;}
+  .btn-danger:hover{filter:brightness(0.97);}
+  .btn-sm{padding:6px 10px;font-size:12px;border-radius:8px;}
+  .btn[disabled]{opacity:.4;cursor:not-allowed;}
+  .btn svg{width:15px;height:15px;}
 
-  .unknown-toast{
-    margin-top:12px;
-    background:#FCF3E3;
-    border:1px solid rgba(217,164,65,0.5);
-    border-radius:8px;
-    padding:12px 14px;
-    font-size:13px;
-  }
-  .unknown-toast .code{ font-family:'Space Mono',monospace; font-weight:700; }
+  /* ---------- POS layout ---------- */
+  .pos-grid{display:flex;gap:20px;height:100%;align-items:flex-start;}
+  .pos-left{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:16px;height:100%;}
+  .pos-right{width:360px;flex:0 0 auto;height:100%;}
 
-  /* ---- Form ---- */
-  label{
-    display:block;
-    font-size:11.5px;
-    text-transform:uppercase;
-    letter-spacing:0.8px;
-    color:var(--ink-soft);
-    margin:12px 0 5px;
+  .scan-cta{
+    background:var(--ink);border-radius:var(--radius);padding:18px 20px;color:#fff;
+    display:flex;align-items:center;justify-content:space-between;gap:16px;
+    box-shadow:var(--shadow);position:relative;overflow:hidden;
   }
-  label:first-child{ margin-top:0; }
-  input[type=text], input[type=number]{
-    width:100%;
-    padding:11px 12px;
-    border:1.5px solid var(--line);
-    border-radius:7px;
-    font-size:15px;
-    font-family:'IBM Plex Sans', sans-serif;
-    background:var(--paper);
-    color:var(--ink);
+  .scan-cta::after{
+    content:"";position:absolute;inset:0;
+    background:repeating-linear-gradient(90deg, rgba(255,255,255,.05) 0 2px, transparent 2px 6px, rgba(255,255,255,.05) 6px 7px, transparent 7px 13px);
+    pointer-events:none;
   }
-  input:focus{ outline:2px solid var(--amber); outline-offset:1px; }
-  .barcode-input-row{ display:flex; gap:8px; }
-  .barcode-input-row input{ flex:1; font-family:'Space Mono', monospace; }
-  .icon-btn{
-    background:var(--forest);
-    color:var(--paper);
-    border:none;
-    border-radius:7px;
-    width:44px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    cursor:pointer;
-  }
+  .scan-cta .txt h2{margin:0 0 4px;font-size:16px;}
+  .scan-cta .txt p{margin:0;font-size:12.5px;color:#A7ACC0;}
+  .scan-cta button{position:relative;z-index:1;white-space:nowrap;}
 
-  /* ---- Cart list ---- */
-  .cart-item{
-    display:flex;
-    align-items:center;
-    gap:10px;
-    padding:10px 0;
-    border-bottom:1px dashed var(--line);
+  .search-row{display:flex;gap:10px;}
+  .search-row input{
+    flex:1;border:1px solid var(--line);background:var(--panel);border-radius:10px;
+    padding:10px 14px;font-size:13.5px;outline:none;
   }
-  .cart-item:last-child{ border-bottom:none; }
-  .cart-item .info{ flex:1; min-width:0; }
-  .cart-item .name{ font-weight:600; font-size:14px; }
-  .cart-item .price{ font-size:12px; color:var(--ink-soft); font-family:'Space Mono',monospace; }
-  .qty-ctrl{ display:flex; align-items:center; gap:6px; }
-  .qty-ctrl button{
-    width:26px; height:26px; border-radius:6px; border:1px solid var(--line);
-    background:var(--paper); font-size:16px; cursor:pointer; color:var(--forest); font-weight:700;
-  }
-  .qty-ctrl .qty{ min-width:20px; text-align:center; font-family:'Space Mono',monospace; font-weight:700; }
-  .line-total{ font-family:'Space Mono',monospace; font-weight:700; min-width:56px; text-align:right; }
-  .remove-x{ background:none; border:none; color:var(--brick); font-size:16px; cursor:pointer; padding:2px 4px; }
+  .search-row input:focus{border-color:var(--amber);}
 
-  .total-row{
-    display:flex; justify-content:space-between; align-items:baseline;
-    padding-top:12px; margin-top:4px; border-top:2px solid var(--ink);
+  .product-grid{
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;
+    overflow-y:auto;padding-bottom:20px;
   }
-  .total-row .lbl{ font-size:13px; text-transform:uppercase; letter-spacing:1px; color:var(--ink-soft); }
-  .total-row .amt{ font-family:'Space Mono',monospace; font-weight:700; font-size:24px; }
+  .p-card{
+    background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;
+    display:flex;flex-direction:column;gap:8px;text-align:left;transition:border-color .12s, transform .08s;
+  }
+  .p-card:hover{border-color:var(--amber);transform:translateY(-1px);}
+  .p-card[disabled]{opacity:.45;cursor:not-allowed;}
+  .p-card[disabled]:hover{transform:none;border-color:var(--line);}
+  .p-avatar{
+    width:100%;aspect-ratio:1.5;border-radius:8px;background:var(--paper);
+    display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk',sans-serif;
+    font-weight:700;font-size:20px;color:var(--text-2);
+  }
+  .p-card .p-name{font-size:13px;font-weight:600;line-height:1.25;}
+  .p-card .p-meta{display:flex;justify-content:space-between;align-items:center;}
+  .p-card .p-price{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;}
+  .p-stock{font-size:10px;padding:2px 6px;border-radius:100px;background:var(--paper);color:var(--text-2);}
+  .p-stock.low{background:var(--red-bg);color:#C81E1E;}
 
   .empty-state{
-    text-align:center;
-    padding:40px 20px;
-    color:var(--ink-soft);
+    flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    color:var(--text-2);gap:10px;text-align:center;padding:40px;
   }
-  .empty-state svg{ opacity:0.35; margin-bottom:10px; }
-  .empty-state .t{ font-weight:600; margin-bottom:4px; color:var(--ink); }
-  .empty-state .d{ font-size:13px; }
+  .empty-state svg{width:40px;height:40px;stroke:#C8CCD8;}
+  .empty-state p{margin:0;font-size:13px;max-width:240px;}
 
-  /* ---- Items list ---- */
-  .item-row{
-    display:flex; align-items:center; gap:10px;
-    padding:12px 0; border-bottom:1px solid var(--line);
+  /* ---------- Receipt / cart ---------- */
+  .receipt{
+    background:var(--panel);border-radius:var(--radius);box-shadow:var(--shadow);
+    height:100%;display:flex;flex-direction:column;overflow:hidden;position:relative;
   }
-  .item-row:last-child{ border-bottom:none; }
-  .item-row .info{ flex:1; min-width:0; }
-  .item-row .name{ font-weight:600; font-size:14px; }
-  .item-row .meta{ font-size:11.5px; color:var(--ink-soft); font-family:'Space Mono',monospace; }
-  .stock-pill{
-    font-size:10.5px; font-family:'Space Mono',monospace; font-weight:700;
-    padding:2px 7px; border-radius:20px; white-space:nowrap;
+  .receipt-top{
+    background-image: radial-gradient(circle at 8px 0, transparent 8px, var(--paper) 8.5px);
+    background-size: 16px 16px; background-position: -4px -8px; height:12px;
+    background-color:var(--ink);
   }
-  .stock-ok{ background:rgba(31,71,54,0.1); color:var(--forest); }
-  .stock-low{ background:rgba(178,58,46,0.12); color:var(--brick); }
-  .item-actions{ display:flex; gap:6px; }
-  .item-actions button{
-    background:none; border:none; cursor:pointer; padding:5px; color:var(--ink-soft);
-  }
-  .item-actions button:hover{ color:var(--ink); }
+  .receipt-head{background:var(--ink);color:#fff;padding:16px 18px 14px;}
+  .receipt-head h3{margin:0 0 2px;font-size:14px;}
+  .receipt-head .rmeta{font-size:11px;color:#A7ACC0;font-family:'IBM Plex Mono',monospace;}
+  .receipt-body{flex:1;overflow-y:auto;padding:14px 18px;display:flex;flex-direction:column;gap:0;}
+  .r-item{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px dashed var(--line);}
+  .r-item:last-child{border-bottom:none;}
+  .r-item .r-name{flex:1;font-size:12.5px;font-weight:500;line-height:1.25;}
+  .r-item .r-name small{display:block;color:var(--text-2);font-family:'IBM Plex Mono',monospace;font-size:10.5px;margin-top:2px;}
+  .qty-ctl{display:flex;align-items:center;gap:6px;}
+  .qty-ctl button{width:20px;height:20px;border-radius:6px;border:1px solid var(--line);background:var(--panel);font-size:13px;line-height:1;display:flex;align-items:center;justify-content:center;}
+  .qty-ctl span{font-family:'IBM Plex Mono',monospace;font-size:12px;min-width:14px;text-align:center;}
+  .r-item .r-line-total{font-family:'IBM Plex Mono',monospace;font-size:12.5px;width:60px;text-align:right;}
+  .r-remove{background:none;border:none;color:#C8CCD8;font-size:15px;padding:0 0 0 2px;}
+  .r-remove:hover{color:var(--laser);}
 
-  .search-bar{
-    display:flex; gap:8px; margin-bottom:14px;
+  .receipt-tot{border-top:1px solid var(--line);padding:14px 18px 18px;background:var(--panel);}
+  .tot-row{display:flex;justify-content:space-between;font-size:12.5px;color:var(--text-2);padding:3px 0;font-family:'IBM Plex Mono',monospace;}
+  .tot-row.grand{color:var(--text);font-size:17px;font-weight:700;padding-top:8px;}
+  .charge-btn{width:100%;margin-top:12px;padding:13px;font-size:14px;border-radius:11px;}
+
+  /* ---------- Tables ---------- */
+  .toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:12px;flex-wrap:wrap;}
+  table{width:100%;border-collapse:collapse;background:var(--panel);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+  thead th{
+    text-align:left;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-2);
+    padding:12px 16px;border-bottom:1px solid var(--line);font-weight:600;
   }
-  .search-bar input{ flex:1; }
+  tbody td{padding:12px 16px;border-bottom:1px solid var(--line);font-size:13px;}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover{background:#FAFAFB;}
+  tbody tr.low-row{box-shadow:inset 3px 0 0 var(--amber);}
+  .tag{font-size:11px;background:var(--paper);color:var(--text-2);padding:3px 9px;border-radius:100px;}
+  .row-actions{display:flex;gap:6px;}
+  .icon-btn{width:28px;height:28px;border-radius:8px;border:1px solid var(--line);background:var(--panel);display:flex;align-items:center;justify-content:center;}
+  .icon-btn:hover{background:var(--paper);}
+  .icon-btn svg{width:14px;height:14px;stroke:var(--text-2);}
 
-  /* ---- Receipt / checkout success ---- */
-  .receipt-view{ text-align:center; padding:10px 4px; }
-  .receipt-view .stamp{
-    width:64px; height:64px; border-radius:50%;
-    background:var(--forest); color:var(--paper);
-    display:flex; align-items:center; justify-content:center;
-    margin:0 auto 14px;
+  /* ---------- Modals ---------- */
+  .overlay{
+    position:fixed;inset:0;background:rgba(20,23,31,.55);backdrop-filter:blur(2px);
+    display:none;align-items:center;justify-content:center;z-index:50;padding:20px;
   }
-  .receipt-view h3{ margin:0 0 4px; font-family:'Space Mono',monospace; }
-  .receipt-view .amt{ font-family:'Space Mono',monospace; font-weight:700; font-size:30px; margin:6px 0 18px; }
-
-  .field-error{ color:var(--brick); font-size:12px; margin-top:5px; }
-
-  .toast-banner{
-    position:fixed; top:14px; left:50%; transform:translateX(-50%);
-    max-width:420px; width:calc(100% - 32px);
-    background:var(--ink); color:var(--paper);
-    padding:10px 14px; border-radius:8px; font-size:13px;
-    z-index:50; text-align:center;
-    box-shadow:0 4px 16px rgba(0,0,0,0.25);
+  .overlay.open{display:flex;}
+  .modal{
+    background:var(--panel);border-radius:16px;width:100%;max-width:420px;max-height:88vh;
+    display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px -12px rgba(0,0,0,.35);
   }
-
-  a.linklike{ color:var(--forest); text-decoration:underline; cursor:pointer; }
-
-  /* ---- Printable receipt ---- */
-  #printArea{ display:none; }
-  .print-receipt{
-    font-family:'Space Mono', monospace;
-    width:280px;
-    margin:0 auto;
-    color:#000;
-    font-size:12px;
-    line-height:1.5;
+  .modal-head{padding:18px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;}
+  .modal-head h3{margin:0;font-size:15px;}
+  .modal-close{width:28px;height:28px;border-radius:8px;border:none;background:var(--paper);display:flex;align-items:center;justify-content:center;color:var(--text-2);font-size:16px;}
+  .modal-body{padding:18px 20px;overflow-y:auto;display:flex;flex-direction:column;gap:14px;}
+  .modal-foot{padding:16px 20px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end;}
+  .field{display:flex;flex-direction:column;gap:6px;}
+  .field label{font-size:11.5px;font-weight:600;color:var(--text-2);letter-spacing:.02em;}
+  .field input,.field select{
+    border:1px solid var(--line);border-radius:9px;padding:10px 12px;font-size:13.5px;outline:none;background:var(--panel);
   }
-  .print-receipt .pr-center{ text-align:center; }
-  .print-receipt .pr-title{ font-weight:700; font-size:16px; letter-spacing:2px; }
-  .print-receipt .pr-rule{ border-top:1px dashed #000; margin:8px 0; }
-  .print-receipt .pr-row{ display:flex; justify-content:space-between; gap:8px; }
-  .print-receipt .pr-total{ font-weight:700; font-size:14px; }
-  @media print{
-    body *{ visibility:hidden; }
-    #printArea, #printArea *{ visibility:visible; }
-    #printArea{ display:block; position:absolute; top:0; left:0; width:100%; }
+  .field input:focus,.field select:focus{border-color:var(--amber);}
+  .field .err{font-size:11px;color:#C81E1E;display:none;}
+  .field.has-err input{border-color:#C81E1E;}
+  .field.has-err .err{display:block;}
+  .barcode-field{display:flex;gap:8px;}
+  .barcode-field input{flex:1;font-family:'IBM Plex Mono',monospace;}
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+
+  /* ---------- Scanner modal ---------- */
+  #scanner-overlay{position:fixed;inset:0;background:rgba(10,11,16,.92);z-index:100;display:none;flex-direction:column;}
+  #scanner-overlay.open{display:flex;}
+  .scan-head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;flex:0 0 auto;}
+  .scan-head .st{color:#fff;}
+  .scan-head .st h3{margin:0;font-size:14px;}
+  .scan-head .st p{margin:2px 0 0;font-size:11.5px;color:#9AA0B4;}
+  .scan-x{width:34px;height:34px;border-radius:100px;background:rgba(255,255,255,.1);border:none;color:#fff;font-size:16px;}
+  .scan-stage{flex:1;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+  #scanner-view{width:100%;max-width:520px;}
+  #scanner-view video{width:100% !important;border-radius:14px;}
+  .reticle{
+    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    width:min(78%,340px);height:150px;border-radius:16px;pointer-events:none;
+    box-shadow:0 0 0 2000px rgba(10,11,16,.45);border:2px solid rgba(255,255,255,.85);
+  }
+  .reticle::before,.reticle::after{content:"";position:absolute;left:0;right:0;height:2px;background:var(--laser);box-shadow:0 0 8px 1px var(--laser);}
+  .reticle .laser-line{position:absolute;left:4%;right:4%;height:2px;background:var(--laser);box-shadow:0 0 10px 2px var(--laser);animation:sweep 1.6s ease-in-out infinite;}
+  @keyframes sweep{0%{top:8%;}50%{top:88%;}100%{top:8%;}}
+  .corner{position:absolute;width:22px;height:22px;border-color:var(--amber);}
+  .corner.tl{top:-2px;left:-2px;border-top:3px solid var(--amber);border-left:3px solid var(--amber);border-radius:6px 0 0 0;}
+  .corner.tr{top:-2px;right:-2px;border-top:3px solid var(--amber);border-right:3px solid var(--amber);border-radius:0 6px 0 0;}
+  .corner.bl{bottom:-2px;left:-2px;border-bottom:3px solid var(--amber);border-left:3px solid var(--amber);border-radius:0 0 0 6px;}
+  .corner.br{bottom:-2px;right:-2px;border-bottom:3px solid var(--amber);border-right:3px solid var(--amber);border-radius:0 0 6px 0;}
+  .scan-note{text-align:center;color:#C8CCD8;font-size:12px;padding:6px 20px 0;min-height:16px;}
+  .scan-manual{flex:0 0 auto;padding:16px 20px 24px;display:flex;gap:10px;max-width:520px;margin:0 auto;width:100%;}
+  .scan-manual input{
+    flex:1;border-radius:10px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);
+    color:#fff;padding:11px 14px;font-size:13px;outline:none;font-family:'IBM Plex Mono',monospace;
+  }
+  .scan-manual input::placeholder{color:#6C7288;}
+  .scan-flip{flex:0 0 auto;}
+  .flip-row{display:flex;justify-content:center;padding-bottom:10px;}
+  .flip-btn{background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.15);border-radius:100px;padding:7px 14px;font-size:12px;display:flex;gap:6px;align-items:center;}
+
+  /* ---------- Toast ---------- */
+  #toast-container{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:200;display:flex;flex-direction:column;gap:8px;align-items:center;}
+  .toast{
+    background:var(--ink);color:#fff;padding:11px 18px;border-radius:100px;font-size:13px;font-weight:500;
+    box-shadow:0 8px 24px -6px rgba(0,0,0,.4);display:flex;align-items:center;gap:8px;
+    animation:toast-in .18s ease;
+  }
+  .toast.error{background:#C81E1E;}
+  .toast.success{background:var(--green);color:#fff;}
+  @keyframes toast-in{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+
+  .stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px;}
+  .stat-card{background:var(--panel);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow);}
+  .stat-card .lbl{font-size:11px;color:var(--text-2);text-transform:uppercase;letter-spacing:.06em;font-weight:600;}
+  .stat-card .val{font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600;margin-top:6px;}
+
+  ::-webkit-scrollbar{width:8px;height:8px;}
+  ::-webkit-scrollbar-thumb{background:#D6D9E0;border-radius:10px;}
+
+  @media (max-width:880px){
+    #shell{flex-direction:column;}
+    #sidebar{
+      order:2;width:100%;flex-direction:row;justify-content:space-around;padding:8px 6px;
+      border-top:1px solid var(--ink-2);
+    }
+    #sidebar .brand{display:none;}
+    .nav-btn{width:auto;flex:1;}
+    #main-col{order:1;height:calc(100vh - 74px);}
+    .pos-grid{flex-direction:column;}
+    .pos-right{width:100%;height:340px;}
+    .stat-row{grid-template-columns:repeat(2,1fr);}
   }
 </style>
 </head>
 <body>
-<div id="printArea"></div>
-<div id="app">
-  <header>
-    <div class="brand-row">
-      <div class="brand">
-        <span class="mark">TILL</span>
-        <span class="sub">Counter POS</span>
-      </div>
-      <div class="led">
-        <div class="lbl">Cart Total</div>
-        <div class="val mono" id="headerTotal">$0.00</div>
-      </div>
+
+<div id="shell">
+  <nav id="sidebar">
+    <div class="brand">
+      <div class="barcode-mark"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <span>SCANLINE</span>
     </div>
-    <div class="barcode-stripe"></div>
-  </header>
-
-  <main id="main"></main>
-
-  <nav class="tabbar">
-    <button data-tab="scan" class="active">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="6" x2="6" y2="18"/><line x1="9" y1="6" x2="9" y2="18"/><line x1="13" y1="6" x2="13" y2="18"/><line x1="16" y1="6" x2="16" y2="18"/><line x1="19" y1="6" x2="19" y2="18"/></svg>
-      Scan
+    <button class="nav-btn" data-view="pos">
+      <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><path d="M7 14h2"/></svg>
+      Sell
     </button>
-    <button data-tab="cart">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
-      Cart
-      <span class="badge" id="cartBadge" style="display:none;">0</span>
+    <button class="nav-btn" data-view="inventory">
+      <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v2"/><path d="M3 8l1 12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2l1-12"/><path d="M3 8h18"/></svg>
+      Stock
     </button>
-    <button data-tab="items">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8V21H3V8"/><path d="M1 3h22v5H1z"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
-      Items
+    <button class="nav-btn" data-view="sales">
+      <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>
+      Sales
+    </button>
+    <button class="nav-btn" data-view="settings">
+      <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 0 1-4 0v-.09A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 0 1 0-4h.09A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3a2 2 0 0 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 1.55 1H21a2 2 0 0 1 0 4h-.09a1.7 1.7 0 0 0-1.55 1z"/></svg>
+      Settings
     </button>
   </nav>
+
+  <div id="main-col">
+    <div id="topbar">
+      <div>
+        <h1 id="page-title">Sell</h1>
+        <div class="sub" id="page-sub">Scan a barcode or search to start a sale</div>
+      </div>
+      <div id="clock" class="mono"></div>
+    </div>
+    <div id="page"></div>
+  </div>
 </div>
 
+<!-- Product add/edit modal -->
+<div class="overlay" id="product-overlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="product-modal-title">Add product</h3>
+      <button class="modal-close" id="product-close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="field" id="f-name">
+        <label>Product name *</label>
+        <input id="in-name" type="text" placeholder="e.g. Colombian Coffee 250g" maxlength="80">
+        <div class="err">Enter a product name.</div>
+      </div>
+      <div class="two-col">
+        <div class="field" id="f-price">
+          <label>Price *</label>
+          <input id="in-price" type="number" min="0" step="0.01" placeholder="0.00">
+          <div class="err">Enter a valid price.</div>
+        </div>
+        <div class="field" id="f-stock">
+          <label>Stock on hand *</label>
+          <input id="in-stock" type="number" min="0" step="1" placeholder="0">
+          <div class="err">Enter a valid quantity.</div>
+        </div>
+      </div>
+      <div class="field">
+        <label>Category</label>
+        <input id="in-category" type="text" placeholder="e.g. Beverages" maxlength="40">
+      </div>
+      <div class="field" id="f-barcode">
+        <label>Barcode <span style="font-weight:400;color:var(--text-2);">(optional — scan or type)</span></label>
+        <div class="barcode-field">
+          <input id="in-barcode" type="text" placeholder="No barcode" maxlength="40">
+          <button class="btn btn-dark btn-sm" id="btn-scan-for-product" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="7" width="18" height="10" rx="1"/><path d="M7 7v10M11 7v10M17 7v10"/></svg>
+            Scan
+          </button>
+        </div>
+        <div class="err">That barcode is already used by another product.</div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" id="product-cancel">Cancel</button>
+      <button class="btn btn-amber" id="product-save">Save product</button>
+    </div>
+  </div>
+</div>
+
+<!-- Receipt modal -->
+<div class="overlay" id="receipt-overlay">
+  <div class="modal" style="max-width:360px;">
+    <div class="modal-head">
+      <h3>Receipt</h3>
+      <button class="modal-close" id="receipt-close">&times;</button>
+    </div>
+    <div class="modal-body" id="receipt-modal-body" style="padding:0;"></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" id="receipt-print">Print</button>
+      <button class="btn btn-amber" id="receipt-done">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- Scanner overlay (kept outside re-rendered DOM so the camera stream is never torn down) -->
+<div id="scanner-overlay">
+  <div class="scan-head">
+    <div class="st">
+      <h3 id="scan-title">Scan barcode</h3>
+      <p id="scan-sub">Point the rear camera at a barcode</p>
+    </div>
+    <button class="scan-x" id="scan-close">&times;</button>
+  </div>
+  <div class="scan-stage">
+    <div id="scanner-view"></div>
+    <div class="reticle" id="reticle">
+      <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+      <div class="laser-line"></div>
+    </div>
+  </div>
+  <div class="scan-note" id="scan-note">Requesting camera access…</div>
+  <div class="flip-row"><button class="flip-btn" id="flip-cam">⟲ Flip camera</button></div>
+  <div class="scan-manual">
+    <input id="manual-barcode" type="text" placeholder="Or type the barcode number and press Enter">
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
 <script>
-/* ---------------------------------------------------------
-   STATE
---------------------------------------------------------- */
-let inventory = {};   // barcode -> {barcode,name,price,stock}
-let cart = [];         // {barcode,name,price,qty}
-let salesLog = [];
-let currentTab = 'scan';
-let scanning = false;
-let lastDetected = { code:null, time:0 };
-let scanMode = 'sell';       // 'sell' | 'capture'
-let editingBarcode = null;   // when editing an existing item
-let lastReceipt = null;
-let itemSearchQuery = '';
-let pendingBarcode = null;   // barcode captured by the camera while adding a new item
-let inputMode = 'scan';      // 'scan' | 'type' — which sell-tab input method is active
+(function(){
 
-const money = n => '₵' + (Math.round(n*100)/100).toFixed(2);
+"use strict";
 
-/* ---------------------------------------------------------
-   STORAGE
-   Uses the browser's own local storage on this device, so
-   the app works fully standalone (no server, no account).
-   Wrapped behind a small db object so a real backend can be
-   swapped in later without touching the rest of the app.
---------------------------------------------------------- */
-const STORAGE_PREFIX = 'tillpos:';
-const STORAGE_VERSION = 1;
-
-const db = {
-  get(key){
+/* ===================== Storage ===================== */
+const Storage = {
+  async get(key, fallback){
     try{
-      const raw = window.localStorage.getItem(STORAGE_PREFIX + key);
-      return raw ? JSON.parse(raw) : null;
-    }catch(e){
-      console.warn('Storage read failed for', key, e);
-      return null;
-    }
+      const r = await window.storage.get(key, true);
+      return r && r.value !== undefined ? JSON.parse(r.value) : fallback;
+    }catch(e){ return fallback; }
   },
-  set(key, value){
-    try{
-      window.localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(value));
-      return true;
-    }catch(e){
-      console.warn('Storage write failed for', key, e);
-      if(e && e.name === 'QuotaExceededError'){
-        showToast('Device storage is full — could not save.');
-      }
-      return false;
-    }
+  async set(key, value){
+    try{ await window.storage.set(key, JSON.stringify(value), true); }
+    catch(e){ console.error('storage set failed', key, e); showToast('Could not save — changes may be lost', 'error'); }
   }
 };
 
-function storageAvailable(){
-  try{
-    const t = '__tillpos_test__';
-    window.localStorage.setItem(t, '1');
-    window.localStorage.removeItem(t);
-    return true;
-  }catch(e){ return false; }
+/* ===================== State ===================== */
+let state = {
+  view: 'pos',
+  products: [],
+  sales: [],
+  settings: { shopName: 'My Shop', currency: 'USD', taxRate: 0, lowStock: 5 },
+  cart: [],          // [{productId, qty}]
+  posSearch: '',
+  invSearch: '',
+  loaded: false
+};
+
+const genId = () => 'id_' + Date.now().toString(36) + Math.random().toString(36).slice(2,8);
+
+function fmt(n){
+  try{ return new Intl.NumberFormat(undefined, { style:'currency', currency: state.settings.currency || 'USD' }).format(n || 0); }
+  catch(e){ return '$' + (n||0).toFixed(2); }
 }
 
-async function loadAll(){
-  if(!storageAvailable()){
-    showToast('This browser is blocking local storage — data won\u2019t be saved between visits.');
-  }
-  const meta = db.get('meta');
-  if(!meta) db.set('meta', { version: STORAGE_VERSION });
-
-  inventory = db.get('inventory');
-  if(!inventory){
-    inventory = {
-      "0000000001": {barcode:"0000000001", name:"House Blend Coffee 12oz", price:8.50, stock:24},
-      "0000000002": {barcode:"0000000002", name:"Oat Milk 1L", price:3.20, stock:15},
-      "0000000003": {barcode:"0000000003", name:"Sourdough Loaf", price:5.75, stock:8}
-    };
-    saveInventory();
-  }
-  cart = db.get('cart') || [];
-  salesLog = db.get('sales') || [];
-}
-function saveInventory(){ db.set('inventory', inventory); }
-function saveCart(){ db.set('cart', cart); }
-function saveSales(){ db.set('sales', salesLog.slice(-200)); }
-
-function exportBackup(){
-  const payload = {
-    exportedAt: new Date().toISOString(),
-    version: STORAGE_VERSION,
-    inventory, cart, sales: salesLog
-  };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type:'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  const stamp = new Date().toISOString().slice(0,10);
-  a.href = url;
-  a.download = `till-pos-backup-${stamp}.json`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
-
-function importBackup(file){
-  const reader = new FileReader();
-  reader.onload = () => {
-    try{
-      const data = JSON.parse(reader.result);
-      if(!data || typeof data.inventory !== 'object') throw new Error('bad file');
-      inventory = data.inventory || {};
-      cart = Array.isArray(data.cart) ? data.cart : [];
-      salesLog = Array.isArray(data.sales) ? data.sales : [];
-      saveInventory(); saveCart(); saveSales();
-      showToast('Backup restored.');
-      render();
-    }catch(e){
-      showToast('Could not read that backup file.');
-    }
-  };
-  reader.readAsText(file);
-}
-
-/* ---------------------------------------------------------
-   RENDER ROOT
---------------------------------------------------------- */
-function render(){
-  updateHeader();
-  const main = document.getElementById('main');
-  if(currentTab==='scan') main.innerHTML = renderScan();
-  else if(currentTab==='cart') main.innerHTML = renderCart();
-  else if(currentTab==='items') main.innerHTML = renderItems(itemSearchQuery);
-  else if(currentTab==='addItem') main.innerHTML = renderAddItem();
-  else if(currentTab==='receipt') main.innerHTML = renderReceipt();
-  attachHandlers();
-}
-
-function updateHeader(){
-  const total = cart.reduce((s,i)=>s+i.price*i.qty,0);
-  document.getElementById('headerTotal').textContent = money(total);
-  const badge = document.getElementById('cartBadge');
-  const count = cart.reduce((s,i)=>s+i.qty,0);
-  if(count>0){ badge.style.display='flex'; badge.textContent = count; }
-  else{ badge.style.display='none'; }
-  document.querySelectorAll('nav.tabbar button').forEach(b=>{
-    b.classList.toggle('active', b.dataset.tab === (currentTab==='addItem' || currentTab==='receipt' ? (scanMode==='capture'?'items':currentTab) : currentTab));
-  });
-}
-
-/* ---------------------------------------------------------
-   SCAN TAB
---------------------------------------------------------- */
-function renderScan(){
-  const toggle = `
-    <div class="mode-toggle">
-      <button data-mode="scan" class="${inputMode==='scan'?'active':''}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="6" x2="6" y2="18"/><line x1="9" y1="6" x2="9" y2="18"/><line x1="13" y1="6" x2="13" y2="18"/><line x1="16" y1="6" x2="16" y2="18"/></svg>
-        Scan
-      </button>
-      <button data-mode="type" class="${inputMode==='type'?'active':''}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        Type / search
-      </button>
-    </div>
-  `;
-
-  if(inputMode === 'type'){
-    return `
-      <h2 class="section-title">Sell an item</h2>
-      ${toggle}
-      <div class="paused-note">Camera is off while you type. Add a product to turn scanning back on.</div>
-
-      <label for="manualBarcode">Barcode</label>
-      <div class="barcode-input-row">
-        <input type="text" id="manualBarcode" inputmode="numeric" placeholder="Enter barcode number" autocomplete="off">
-        <button class="icon-btn" id="manualGoBtn" aria-label="Look up">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-        </button>
-      </div>
-      <div id="unknownBox"></div>
-
-      <label for="nameSearch" style="margin-top:16px;">Or search by name</label>
-      <input type="text" id="nameSearch" placeholder="Type a product name…" autocomplete="off">
-      <div id="nameSearchResults" style="margin-top:10px;"></div>
-    `;
-  }
-
-  return `
-    <h2 class="section-title">Scan to sell</h2>
-    ${toggle}
-    <div class="scan-frame" id="scanFrame">
-      <div id="scanner-viewport"></div>
-      <div class="scan-guide"><div class="box"></div></div>
-      <div class="scan-placeholder" id="scanPlaceholder">
-        Requesting camera access…
-      </div>
-    </div>
-    <div class="camera-status" id="cameraStatus">Turning on camera…</div>
-    <div class="row" style="margin-top:10px;">
-      <button class="btn btn-ghost" id="restartScanBtn">Restart camera</button>
-    </div>
-    <div id="unknownBox"></div>
-  `;
-}
-
-function renderNameSearchResults(query){
-  const q = query.trim().toLowerCase();
-  if(!q) return '';
-  const matches = Object.values(inventory)
-    .filter(it => it.name.toLowerCase().includes(q))
-    .sort((a,b)=>a.name.localeCompare(b.name))
-    .slice(0, 20);
-  if(matches.length===0){
-    return `<div class="unknown-toast">No items match "${escapeHtml(query)}".</div>`;
-  }
-  const rows = matches.map(it=>`
-    <div class="item-row search-result" data-code="${escapeAttr(it.barcode)}" style="cursor:pointer;">
-      <div class="info">
-        <div class="name">${escapeHtml(it.name)}</div>
-        <div class="meta">${money(it.price)} · ${it.stock} in stock</div>
-      </div>
-      <button class="btn btn-amber btn-sm add-search-result" data-code="${escapeAttr(it.barcode)}">Add</button>
-    </div>
-  `).join('');
-  return `<div class="ticket"><div class="ticket-body">${rows}</div></div>`;
-}
-
-function startScanner(){
-  const placeholder = document.getElementById('scanPlaceholder');
-  const status = document.getElementById('cameraStatus');
-
-  const isSecure = window.isSecureContext || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-  if(!isSecure){
-    if(placeholder){
-      placeholder.style.display='flex';
-      placeholder.style.alignItems='center';
-      placeholder.style.justifyContent='center';
-      placeholder.textContent = 'Camera access needs a secure (https) connection. Open this page over https, or type the barcode instead.';
-    }
-    if(status){ status.textContent = 'Camera unavailable on this connection'; status.className = 'camera-status error'; }
-    scanning=false;
-    return;
-  }
-  if(typeof Quagga === 'undefined'){
-    if(placeholder){
-      placeholder.style.display='flex';
-      placeholder.style.alignItems='center';
-      placeholder.style.justifyContent='center';
-      placeholder.textContent = 'Scanner library failed to load — check your connection, or type the barcode instead.';
-    }
-    if(status){ status.textContent = 'Scanner unavailable'; status.className = 'camera-status error'; }
-    scanning=false;
-    return;
-  }
-  if(!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)){
-    if(placeholder){
-      placeholder.style.display='flex';
-      placeholder.style.alignItems='center';
-      placeholder.style.justifyContent='center';
-      placeholder.textContent = 'This browser doesn\u2019t support camera access — type the barcode instead.';
-    }
-    if(status){ status.textContent = 'Camera not supported'; status.className = 'camera-status error'; }
-    scanning=false;
-    return;
-  }
-
-  if(status){ status.textContent = 'Requesting camera access…'; status.className = 'camera-status'; }
-
-  Quagga.init({
-    inputStream:{
-      name:"Live",
-      type:"LiveStream",
-      target: document.querySelector('#scanner-viewport'),
-      constraints:{ facingMode:{ ideal:"environment" }, width:{ideal:1280}, height:{ideal:720} }
-    },
-    locator:{ patchSize:"medium", halfSample:true },
-    numOfWorkers: 2,
-    frequency: 10,
-    decoder:{ readers:["ean_reader","ean_8_reader","upc_reader","upc_e_reader","code_128_reader","codabar_reader","code_39_reader"] },
-    locate:true
-  }, function(err){
-    if(err){
-      if(placeholder){
-        placeholder.style.display='flex';
-        placeholder.style.alignItems='center';
-        placeholder.style.justifyContent='center';
-        placeholder.textContent = "Camera unavailable. Allow camera access in your browser, then tap Restart camera — or type the barcode instead.";
-      }
-      if(status){ status.textContent = 'Camera off'; status.className = 'camera-status error'; }
-      scanning=false;
-      return;
-    }
-    if(placeholder) placeholder.style.display='none';
-    Quagga.start();
-    scanning=true;
-    if(status){ status.textContent = '● Camera live — point at a barcode'; status.className = 'camera-status live'; }
-  });
-  Quagga.onDetected(handleDetected);
-}
-
-function stopScanner(){
-  try{ Quagga.offDetected(handleDetected); Quagga.stop(); }catch(e){}
-  scanning=false;
-  const status = document.getElementById('cameraStatus');
-  if(status){ status.textContent = 'Camera off'; status.className = 'camera-status'; }
-}
-
-function handleDetected(result){
-  const code = result.codeResult.code;
-  const now = Date.now();
-  if(code === lastDetected.code && now - lastDetected.time < 1500) return;
-  lastDetected = { code, time: now };
-  if(navigator.vibrate) navigator.vibrate(80);
-  flashHit();
-  processScannedCode(code);
-}
-
-function flashHit(){
-  const frame = document.getElementById('scanFrame');
-  if(!frame) return;
-  const el = document.createElement('div');
-  el.className = 'flash-hit';
-  frame.appendChild(el);
-  setTimeout(()=>el.remove(), 500);
-}
-
-function processScannedCode(code){
-  if(scanMode === 'capture'){
-    pendingBarcode = code;
-    stopScanner();
-    scanMode = 'sell';
-    render();
-    return;
-  }
-  const item = inventory[code];
-  if(item){
-    if(inputMode === 'type') inputMode = 'scan';
-    addToCart(item);
-    const unknownBox = document.getElementById('unknownBox');
-    if(unknownBox) unknownBox.innerHTML = '';
-    showToast(`Added ${item.name}`);
-  }else{
-    document.getElementById('unknownBox').innerHTML = `
-      <div class="unknown-toast">
-        No item matches barcode <span class="code">${escapeHtml(code)}</span>.
-        <div style="margin-top:8px;">
-          <button class="btn btn-amber btn-sm" id="addUnknownBtn">Add this item</button>
-        </div>
-      </div>`;
-    const b = document.getElementById('addUnknownBtn');
-    if(b) b.addEventListener('click', ()=>{ openAddItem(code); });
-  }
-}
-
-/* ---------------------------------------------------------
-   CART TAB
---------------------------------------------------------- */
-function renderCart(){
-  if(cart.length===0){
-    return `
-      <h2 class="section-title">Cart</h2>
-      <div class="empty-state">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
-        <div class="t">Cart is empty</div>
-        <div class="d">Scan an item to add it here.</div>
-      </div>`;
-  }
-  const total = cart.reduce((s,i)=>s+i.price*i.qty,0);
-  const rows = cart.map(i=>`
-    <div class="cart-item" data-code="${escapeAttr(i.barcode)}">
-      <div class="info">
-        <div class="name">${escapeHtml(i.name)}</div>
-        <div class="price">${money(i.price)} each</div>
-      </div>
-      <div class="qty-ctrl">
-        <button class="qty-dec" aria-label="Decrease">−</button>
-        <span class="qty">${i.qty}</span>
-        <button class="qty-inc" aria-label="Increase">+</button>
-      </div>
-      <div class="line-total">${money(i.price*i.qty)}</div>
-      <button class="remove-x" aria-label="Remove">✕</button>
-    </div>
-  `).join('');
-  return `
-    <h2 class="section-title">Cart</h2>
-    <div class="ticket"><div class="ticket-body">
-      ${rows}
-      <div class="total-row">
-        <span class="lbl">Total</span>
-        <span class="amt">${money(total)}</span>
-      </div>
-    </div></div>
-    <button class="btn btn-amber" id="checkoutBtn">Charge ${money(total)}</button>
-    <div style="height:8px;"></div>
-    <button class="btn btn-ghost" id="clearCartBtn">Clear cart</button>
-  `;
-}
-
-function addToCart(item){
-  const existing = cart.find(c=>c.barcode===item.barcode);
-  if(existing) existing.qty += 1;
-  else cart.push({ barcode:item.barcode, name:item.name, price:item.price, qty:1 });
-  saveCart();
-  render();
-}
-
-function changeQty(barcode, delta){
-  const c = cart.find(c=>c.barcode===barcode);
-  if(!c) return;
-  c.qty += delta;
-  if(c.qty<=0) cart = cart.filter(x=>x.barcode!==barcode);
-  saveCart();
-  render();
-}
-
-function removeFromCart(barcode){
-  cart = cart.filter(c=>c.barcode!==barcode);
-  saveCart();
-  render();
-}
-
-function checkout(){
-  if(cart.length===0) return;
-  const total = cart.reduce((s,i)=>s+i.price*i.qty,0);
-  cart.forEach(ci=>{
-    const inv = inventory[ci.barcode];
-    if(inv) inv.stock = Math.max(0, inv.stock - ci.qty);
-  });
-  const sale = { id: Date.now(), items: cart.map(c=>({...c})), total, ts: new Date().toISOString() };
-  salesLog.push(sale);
-  lastReceipt = sale;
-  cart = [];
-  saveInventory(); saveSales(); saveCart();
-  currentTab = 'receipt';
-  render();
-}
-
-/* ---------------------------------------------------------
-   RECEIPT
---------------------------------------------------------- */
-function renderReceipt(){
-  if(!lastReceipt) { currentTab='scan'; return renderScan(); }
-  const lines = lastReceipt.items.map(i=>`
-    <div class="cart-item">
-      <div class="info">
-        <div class="name">${escapeHtml(i.name)}</div>
-        <div class="price">${i.qty} × ${money(i.price)}</div>
-      </div>
-      <div class="line-total">${money(i.price*i.qty)}</div>
-    </div>
-  `).join('');
-  return `
-    <div class="receipt-view">
-      <div class="stamp">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-      </div>
-      <h3>Sale complete</h3>
-      <div class="amt">${money(lastReceipt.total)}</div>
-    </div>
-    <div class="ticket"><div class="ticket-body">
-      ${lines}
-    </div></div>
-    <button class="btn btn-primary" id="printReceiptBtn">Print receipt</button>
-    <div style="height:8px;"></div>
-    <button class="btn btn-ghost" id="newSaleBtn">Start new sale</button>
-  `;
-}
-
-/* ---------------------------------------------------------
-   ITEMS TAB
---------------------------------------------------------- */
-function renderItems(query){
-  const hasAnyItems = Object.keys(inventory).length > 0;
-  return `
-    <h2 class="section-title">Inventory</h2>
-    <button class="btn btn-amber" id="newItemBtn" style="margin-bottom:14px;">+ Add new item</button>
-    ${hasAnyItems? `
-      <div class="search-bar">
-        <input type="text" id="itemSearch" placeholder="Search by name or barcode…" autocomplete="off" value="${escapeAttr(query||'')}">
-      </div>` : ''}
-    <div id="itemsListBox">${renderItemsList(query)}</div>
-
-    <h2 class="section-title" style="margin-top:22px;">Backup &amp; restore</h2>
-    <div class="ticket"><div class="ticket-body">
-      <p style="margin:0 0 12px; font-size:12.5px; color:var(--ink-soft); line-height:1.5;">
-        Your items and sales are saved on this device only. Export a backup now and then to keep a copy safe.
-      </p>
-      <div class="row">
-        <button class="btn btn-ghost" id="exportBtn">Export backup</button>
-        <button class="btn btn-ghost" id="importBtn">Restore backup</button>
-      </div>
-      <input type="file" id="importFileInput" accept="application/json" style="display:none;">
-    </div></div>
-  `;
-}
-
-function renderItemsList(query){
-  const q = (query || '').trim().toLowerCase();
-  const hasAnyItems = Object.keys(inventory).length > 0;
-  let list = Object.values(inventory).sort((a,b)=>a.name.localeCompare(b.name));
-  if(q) list = list.filter(it => it.name.toLowerCase().includes(q) || it.barcode.toLowerCase().includes(q));
-  if(list.length===0){
-    return `
-      <div class="empty-state">
-        <div class="t">${hasAnyItems? 'No matches' : 'No items yet'}</div>
-        <div class="d">${hasAnyItems? 'Try a different search.' : 'Add your first item to start selling.'}</div>
-      </div>`;
-  }
-  const rows = list.map(it=>`
-    <div class="item-row" data-code="${escapeAttr(it.barcode)}">
-      <div class="info">
-        <div class="name">${escapeHtml(it.name)}</div>
-        <div class="meta">${escapeHtml(it.barcode)} · ${money(it.price)}</div>
-      </div>
-      <span class="stock-pill ${it.stock<=3?'stock-low':'stock-ok'}">${it.stock} in stock</span>
-      <div class="item-actions">
-        <button class="edit-item" aria-label="Edit">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>
-        </button>
-        <button class="delete-item" aria-label="Delete">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-        </button>
-      </div>
-    </div>
-  `).join('');
-  return `<div class="ticket"><div class="ticket-body">${rows}</div></div>`;
-}
-
-/* ---------------------------------------------------------
-   ADD / EDIT ITEM
---------------------------------------------------------- */
-function openAddItem(prefillBarcode){
-  if(scanning) stopScanner();
-  editingBarcode = null;
-  pendingBarcode = prefillBarcode || null;
-  currentTab = 'addItem';
-  render();
-}
-
-function openEditItem(barcode){
-  if(scanning) stopScanner();
-  editingBarcode = barcode;
-  pendingBarcode = null;
-  currentTab = 'addItem';
-  render();
-}
-
-function renderAddItem(){
-  const editing = editingBarcode ? inventory[editingBarcode] : null;
-  return `
-    <h2 class="section-title">${editing? 'Edit item' : 'Add item'}</h2>
-    <div class="ticket"><div class="ticket-body">
-      <label for="itemBarcode">Barcode</label>
-      <div class="barcode-input-row">
-        <input type="text" id="itemBarcode" inputmode="numeric" placeholder="Scan or type barcode" value="${editing? escapeAttr(editing.barcode): escapeAttr(pendingBarcode||'')}" ${editing? 'readonly' : ''}>
-        ${editing? '' : `<button class="icon-btn" id="captureScanBtn" aria-label="Scan barcode">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="6" x2="6" y2="18"/><line x1="9" y1="6" x2="9" y2="18"/><line x1="13" y1="6" x2="13" y2="18"/></svg>
-        </button>`}
-      </div>
-      <div id="captureFrameBox"></div>
-
-      <label for="itemName">Item name</label>
-      <input type="text" id="itemName" placeholder="e.g. Sourdough Loaf" value="${editing? escapeAttr(editing.name): ''}">
-
-      <label for="itemPrice">Price</label>
-      <input type="number" id="itemPrice" step="0.01" min="0" placeholder="0.00" value="${editing? editing.price: ''}">
-
-      <label for="itemStock">Stock on hand</label>
-      <input type="number" id="itemStock" step="1" min="0" placeholder="0" value="${editing? editing.stock: ''}">
-
-      <div id="itemFormError" class="field-error" style="display:none;"></div>
-
-      <div class="row" style="margin-top:16px;">
-        <button class="btn btn-ghost" id="cancelItemBtn">Cancel</button>
-        <button class="btn btn-primary" id="saveItemBtn">${editing? 'Save changes':'Save item'}</button>
-      </div>
-      ${editing? `<div style="margin-top:10px; text-align:center;"><a class="linklike" id="deleteItemLink">Delete this item</a></div>` : ''}
-    </div></div>
-  `;
-}
-
-function saveItemForm(){
-  const barcode = document.getElementById('itemBarcode').value.trim();
-  const name = document.getElementById('itemName').value.trim();
-  const price = parseFloat(document.getElementById('itemPrice').value);
-  const stock = parseInt(document.getElementById('itemStock').value, 10);
-  const err = document.getElementById('itemFormError');
-
-  if(!barcode || !name || isNaN(price) || price<0 || isNaN(stock) || stock<0){
-    err.textContent = 'Fill in barcode, name, a valid price and stock count.';
-    err.style.display = 'block';
-    return;
-  }
-  if(!editingBarcode && inventory[barcode]){
-    err.textContent = 'An item with this barcode already exists.';
-    err.style.display = 'block';
-    return;
-  }
-  inventory[barcode] = { barcode, name, price, stock };
-  saveInventory();
-  editingBarcode = null;
-  pendingBarcode = null;
-  currentTab = 'items';
-  render();
-}
-
-function deleteItem(barcode){
-  delete inventory[barcode];
-  saveInventory();
-  currentTab = 'items';
-  editingBarcode = null;
-  render();
-}
-
-/* ---------------------------------------------------------
-   HANDLERS
---------------------------------------------------------- */
-function attachHandlers(){
-  // tab nav
-  document.querySelectorAll('nav.tabbar button').forEach(btn=>{
-    btn.onclick = ()=>{
-      if(scanning) stopScanner();
-      currentTab = btn.dataset.tab;
-      editingBarcode = null;
-      render();
-    };
-  });
-
-  if(currentTab==='scan'){
-    document.querySelectorAll('.mode-toggle button').forEach(b=>{
-      b.onclick = ()=>{
-        const target = b.dataset.mode;
-        if(target === inputMode) return;
-        if(scanning) stopScanner();
-        inputMode = target;
-        render();
-      };
-    });
-
-    if(inputMode === 'scan'){
-      const restartBtn = document.getElementById('restartScanBtn');
-      if(restartBtn) restartBtn.onclick = ()=>{
-        scanMode = 'sell';
-        if(scanning) stopScanner();
-        startScanner();
-      };
-      if(!scanning){
-        scanMode = 'sell';
-        startScanner();
-      }
-    }
-
-    if(inputMode === 'type'){
-      const goBtn = document.getElementById('manualGoBtn');
-      if(goBtn) goBtn.onclick = ()=>{
-        const val = document.getElementById('manualBarcode').value.trim();
-        if(val) processScannedCode(val);
-        document.getElementById('manualBarcode').value='';
-      };
-      const manualInput = document.getElementById('manualBarcode');
-      if(manualInput){
-        manualInput.addEventListener('keydown', e=>{
-          if(e.key==='Enter') document.getElementById('manualGoBtn').click();
-        });
-        manualInput.focus();
-      }
-
-      const nameSearch = document.getElementById('nameSearch');
-      if(nameSearch){
-        nameSearch.addEventListener('input', e=>{
-          document.getElementById('nameSearchResults').innerHTML = renderNameSearchResults(e.target.value);
-          attachSearchResultHandlers();
-        });
-      }
-    }
-  }
-
-  if(currentTab==='cart'){
-    document.querySelectorAll('.qty-inc').forEach(b=>b.onclick=e=>{
-      changeQty(e.target.closest('.cart-item').dataset.code, 1);
-    });
-    document.querySelectorAll('.qty-dec').forEach(b=>b.onclick=e=>{
-      changeQty(e.target.closest('.cart-item').dataset.code, -1);
-    });
-    document.querySelectorAll('.remove-x').forEach(b=>b.onclick=e=>{
-      removeFromCart(e.target.closest('.cart-item').dataset.code);
-    });
-    const checkoutBtn = document.getElementById('checkoutBtn');
-    if(checkoutBtn) checkoutBtn.onclick = checkout;
-    const clearBtn = document.getElementById('clearCartBtn');
-    if(clearBtn) clearBtn.onclick = ()=>{ cart=[]; saveCart(); render(); };
-  }
-
-  if(currentTab==='receipt'){
-    const newSaleBtn = document.getElementById('newSaleBtn');
-    if(newSaleBtn) newSaleBtn.onclick = ()=>{ lastReceipt=null; currentTab='scan'; render(); };
-    const printBtn = document.getElementById('printReceiptBtn');
-    if(printBtn) printBtn.onclick = printReceipt;
-  }
-
-  if(currentTab==='items'){
-    const newItemBtn = document.getElementById('newItemBtn');
-    if(newItemBtn) newItemBtn.onclick = ()=>openAddItem(null);
-    attachItemsListHandlers();
-    const itemSearch = document.getElementById('itemSearch');
-    if(itemSearch){
-      itemSearch.addEventListener('input', e=>{
-        itemSearchQuery = e.target.value;
-        document.getElementById('itemsListBox').innerHTML = renderItemsList(itemSearchQuery);
-        attachItemsListHandlers();
-      });
-    }
-    const exportBtn = document.getElementById('exportBtn');
-    if(exportBtn) exportBtn.onclick = exportBackup;
-    const importBtn = document.getElementById('importBtn');
-    const importFileInput = document.getElementById('importFileInput');
-    if(importBtn && importFileInput){
-      importBtn.onclick = ()=> importFileInput.click();
-      importFileInput.onchange = (e)=>{
-        const file = e.target.files && e.target.files[0];
-        if(file){
-          if(confirm('Restoring a backup will replace all current items, cart and sales on this device. Continue?')){
-            importBackup(file);
-          }
-        }
-        importFileInput.value = '';
-      };
-    }
-  }
-
-  if(currentTab==='addItem'){
-    const cancelBtn = document.getElementById('cancelItemBtn');
-    if(cancelBtn) cancelBtn.onclick = ()=>{ if(scanning) stopScanner(); editingBarcode=null; pendingBarcode=null; currentTab='items'; render(); };
-    const saveBtn = document.getElementById('saveItemBtn');
-    if(saveBtn) saveBtn.onclick = saveItemForm;
-    const deleteLink = document.getElementById('deleteItemLink');
-    if(deleteLink) deleteLink.onclick = ()=>{
-      if(confirm(`Delete "${inventory[editingBarcode].name}"?`)) deleteItem(editingBarcode);
-    };
-    const captureBtn = document.getElementById('captureScanBtn');
-    if(captureBtn) captureBtn.onclick = ()=>{
-      scanMode = 'capture';
-      const box = document.getElementById('captureFrameBox');
-      box.innerHTML = `
-        <div class="scan-frame" id="scanFrame" style="margin-top:10px;">
-          <div id="scanner-viewport"></div>
-          <div class="scan-guide"><div class="box"></div></div>
-        </div>`;
-      startScanner();
-      captureBtn.style.display='none';
-    };
-  }
-}
-
-function attachItemsListHandlers(){
-  document.querySelectorAll('.edit-item').forEach(b=>b.onclick=e=>{
-    openEditItem(e.target.closest('.item-row').dataset.code);
-  });
-  document.querySelectorAll('.delete-item').forEach(b=>b.onclick=e=>{
-    const code = e.target.closest('.item-row').dataset.code;
-    if(confirm(`Delete "${inventory[code].name}"?`)) deleteItem(code);
-  });
-}
-
-function attachSearchResultHandlers(){
-  document.querySelectorAll('.add-search-result').forEach(b=>{
-    b.onclick = (e)=>{
-      e.stopPropagation();
-      const code = b.dataset.code;
-      const item = inventory[code];
-      if(item){
-        if(inputMode === 'type') inputMode = 'scan';
-        addToCart(item);
-        showToast(`Added ${item.name}`);
-      }
-    };
-  });
-  document.querySelectorAll('.search-result').forEach(row=>{
-    row.onclick = ()=>{
-      const code = row.dataset.code;
-      const item = inventory[code];
-      if(item){
-        if(inputMode === 'type') inputMode = 'scan';
-        addToCart(item);
-        showToast(`Added ${item.name}`);
-      }
-    };
-  });
-}
-
-function printReceipt(){
-  if(!lastReceipt) return;
-  const dt = new Date(lastReceipt.ts);
-  const dateStr = dt.toLocaleDateString();
-  const timeStr = dt.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
-  const lines = lastReceipt.items.map(i => `
-    <div class="pr-row"><span>${escapeHtml(i.name)}</span></div>
-    <div class="pr-row"><span>${i.qty} × ${money(i.price)}</span><span>${money(i.price*i.qty)}</span></div>
-  `).join('');
-  document.getElementById('printArea').innerHTML = `
-    <div class="print-receipt">
-      <div class="pr-center pr-title">TILL</div>
-      <div class="pr-center">Counter POS</div>
-      <div class="pr-center">${dateStr} ${timeStr}</div>
-      <div class="pr-rule"></div>
-      ${lines}
-      <div class="pr-rule"></div>
-      <div class="pr-row pr-total"><span>TOTAL</span><span>${money(lastReceipt.total)}</span></div>
-      <div class="pr-rule"></div>
-      <div class="pr-center">Thank you!</div>
-    </div>
-  `;
-  window.print();
-}
-
-/* ---------------------------------------------------------
-   UTIL
---------------------------------------------------------- */
-function escapeHtml(s){
-  return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
-function escapeAttr(s){ return escapeHtml(s); }
-function showToast(msg){
+function showToast(msg, type){
+  const c = document.getElementById('toast-container');
   const t = document.createElement('div');
-  t.className = 'toast-banner';
+  t.className = 'toast' + (type ? ' ' + type : '');
   t.textContent = msg;
-  document.body.appendChild(t);
-  setTimeout(()=>t.remove(), 1600);
+  c.appendChild(t);
+  setTimeout(()=>{ t.style.opacity='0'; t.style.transition='opacity .2s'; setTimeout(()=>t.remove(),200); }, 2400);
 }
 
-/* ---------------------------------------------------------
-   INIT
---------------------------------------------------------- */
-(async function init(){
-  try{
-    await loadAll();
-    render();
-  }catch(e){
-    console.error('Till POS failed to start', e);
-    document.getElementById('main').innerHTML = `
-      <div class="empty-state">
-        <div class="t">Something went wrong loading Till</div>
-        <div class="d">Try reloading the page. If this keeps happening, clear this site's data in your browser settings.</div>
-      </div>`;
+/* ===================== Init / seed ===================== */
+async function init(){
+  const [products, sales, settings] = await Promise.all([
+    Storage.get('products', null),
+    Storage.get('sales', []),
+    Storage.get('settings', null)
+  ]);
+
+  if (products === null){
+    state.products = [
+      { id: genId(), name:'Colombian Coffee 250g', category:'Beverages', price:8.5, stock:24, barcode:'8901030815131', createdAt: Date.now() },
+      { id: genId(), name:'Oat Milk 1L', category:'Dairy & Alt', price:3.2, stock:16, barcode:'7622210410376', createdAt: Date.now() },
+      { id: genId(), name:'Sourdough Loaf', category:'Bakery', price:5.75, stock:4, barcode:'', createdAt: Date.now() },
+      { id: genId(), name:'Sea Salt Crisps 150g', category:'Snacks', price:2.4, stock:32, barcode:'5000112548167', createdAt: Date.now() }
+    ];
+    await Storage.set('products', state.products);
+    showToast('Loaded sample products to get you started');
+  } else {
+    state.products = products;
   }
+
+  state.sales = sales || [];
+  state.settings = settings || state.settings;
+  state.loaded = true;
+
+  bindStaticEvents();
+  startClock();
+  render();
+}
+
+/* ===================== Persistence helpers ===================== */
+async function saveProducts(){ await Storage.set('products', state.products); }
+async function saveSales(){ await Storage.set('sales', state.sales); }
+async function saveSettings(){ await Storage.set('settings', state.settings); }
+
+/* ===================== Clock ===================== */
+function startClock(){
+  const el = document.getElementById('clock');
+  const tick = () => { el.textContent = new Date().toLocaleString(undefined, { weekday:'short', hour:'2-digit', minute:'2-digit', month:'short', day:'numeric' }); };
+  tick(); setInterval(tick, 30000);
+}
+
+/* ===================== Nav ===================== */
+function bindStaticEvents(){
+  document.querySelectorAll('.nav-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{ state.view = btn.dataset.view; render(); });
+  });
+
+  // Product modal
+  document.getElementById('product-close').addEventListener('click', closeProductModal);
+  document.getElementById('product-cancel').addEventListener('click', closeProductModal);
+  document.getElementById('product-save').addEventListener('click', saveProductForm);
+  document.getElementById('btn-scan-for-product').addEventListener('click', ()=>{
+    openScanner({
+      title:'Scan product barcode',
+      sub:'Line the barcode up inside the frame',
+      continuous:false,
+      onDetect:(code)=>{
+        document.getElementById('in-barcode').value = code;
+        closeScanner();
+        showToast('Barcode captured');
+      }
+    });
+  });
+
+  // Receipt modal
+  document.getElementById('receipt-close').addEventListener('click', closeReceipt);
+  document.getElementById('receipt-done').addEventListener('click', closeReceipt);
+  document.getElementById('receipt-print').addEventListener('click', ()=> window.print());
+
+  // Scanner modal
+  document.getElementById('scan-close').addEventListener('click', closeScanner);
+  document.getElementById('flip-cam').addEventListener('click', flipCamera);
+  document.getElementById('manual-barcode').addEventListener('keydown', (e)=>{
+    if (e.key === 'Enter'){
+      const v = e.target.value.trim();
+      if (v && scannerCtx.onDetect){ scannerCtx.onDetect(v); e.target.value=''; }
+    }
+  });
+}
+
+/* ===================== Render router ===================== */
+function render(){
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view === state.view));
+  const titles = {
+    pos:['Sell','Scan a barcode or search to start a sale'],
+    inventory:['Stock','Manage products, prices and barcodes'],
+    sales:['Sales','Completed transactions'],
+    settings:['Settings','Shop preferences']
+  };
+  document.getElementById('page-title').textContent = titles[state.view][0];
+  document.getElementById('page-sub').textContent = titles[state.view][1];
+
+  const page = document.getElementById('page');
+  if (state.view === 'pos') page.innerHTML = renderPOS();
+  else if (state.view === 'inventory') page.innerHTML = renderInventory();
+  else if (state.view === 'sales') page.innerHTML = renderSales();
+  else page.innerHTML = renderSettings();
+
+  bindPageEvents();
+}
+
+/* ===================== POS view ===================== */
+function renderPOS(){
+  const q = state.posSearch.trim().toLowerCase();
+  const filtered = state.products.filter(p =>
+    !q || p.name.toLowerCase().includes(q) || (p.barcode||'').includes(q) || (p.category||'').toLowerCase().includes(q)
+  );
+
+  const cards = filtered.map(p => `
+    <button class="p-card" data-add="${p.id}" ${p.stock<=0?'disabled':''}>
+      <div class="p-avatar">${escapeHtml(p.name.slice(0,2).toUpperCase())}</div>
+      <div class="p-name">${escapeHtml(p.name)}</div>
+      <div class="p-meta">
+        <span class="p-price mono">${fmt(p.price)}</span>
+        <span class="p-stock ${p.stock<=state.settings.lowStock?'low':''}">${p.stock<=0?'Out':p.stock+' left'}</span>
+      </div>
+    </button>
+  `).join('');
+
+  const cartHtml = state.cart.length ? state.cart.map(ci=>{
+    const p = state.products.find(x=>x.id===ci.productId);
+    if (!p) return '';
+    return `
+      <div class="r-item">
+        <div class="r-name">${escapeHtml(p.name)}<small>${fmt(p.price)} each</small></div>
+        <div class="qty-ctl">
+          <button data-qty="-1" data-id="${p.id}">−</button>
+          <span>${ci.qty}</span>
+          <button data-qty="1" data-id="${p.id}">+</button>
+        </div>
+        <div class="r-line-total">${fmt(p.price*ci.qty)}</div>
+        <button class="r-remove" data-remove="${p.id}">&times;</button>
+      </div>`;
+  }).join('') : `<div class="empty-state" style="padding:30px 10px;">
+      <svg fill="none" viewBox="0 0 24 24" stroke-width="1.5"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/></svg>
+      <p>Scan a barcode or tap a product to start a sale.</p>
+    </div>`;
+
+  const subtotal = cartSubtotal();
+  const tax = subtotal * (state.settings.taxRate/100);
+  const total = subtotal + tax;
+
+  return `
+  <div class="pos-grid">
+    <div class="pos-left">
+      <div class="scan-cta">
+        <div class="txt">
+          <h2>Scan to sell</h2>
+          <p>Use your camera as a barcode scanner — items are added instantly</p>
+        </div>
+        <button class="btn btn-amber" id="btn-scan-sale">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="7" width="18" height="10" rx="1"/><path d="M7 7v10M11 7v10M17 7v10"/></svg>
+          Scan barcode
+        </button>
+      </div>
+      <div class="search-row">
+        <input id="pos-search" type="text" placeholder="Search products by name, category or barcode…" value="${escapeAttr(state.posSearch)}">
+      </div>
+      ${filtered.length ? `<div class="product-grid">${cards}</div>` : `<div class="empty-state"><svg fill="none" viewBox="0 0 24 24" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><p>No products match “${escapeHtml(state.posSearch)}”.</p></div>`}
+    </div>
+    <div class="pos-right">
+      <div class="receipt">
+        <div class="receipt-top"></div>
+        <div class="receipt-head">
+          <h3>${escapeHtml(state.settings.shopName || 'My Shop')}</h3>
+          <div class="rmeta">${new Date().toLocaleDateString()} · ${state.cart.reduce((a,c)=>a+c.qty,0)} item(s)</div>
+        </div>
+        <div class="receipt-body">${cartHtml}</div>
+        <div class="receipt-tot">
+          <div class="tot-row"><span>Subtotal</span><span>${fmt(subtotal)}</span></div>
+          <div class="tot-row"><span>Tax (${state.settings.taxRate||0}%)</span><span>${fmt(tax)}</span></div>
+          <div class="tot-row grand"><span>Total</span><span>${fmt(total)}</span></div>
+          <button class="btn btn-amber charge-btn" id="btn-charge" ${state.cart.length?'':'disabled'}>Charge ${fmt(total)}</button>
+          ${state.cart.length ? `<button class="btn btn-ghost" id="btn-clear-cart" style="width:100%;margin-top:8px;">Clear sale</button>` : ''}
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function cartSubtotal(){
+  return state.cart.reduce((sum, ci)=>{
+    const p = state.products.find(x=>x.id===ci.productId);
+    return sum + (p ? p.price*ci.qty : 0);
+  },0);
+}
+
+function addToCart(productId){
+  const p = state.products.find(x=>x.id===productId);
+  if (!p) return;
+  const inCart = state.cart.find(c=>c.productId===productId);
+  const currentQty = inCart ? inCart.qty : 0;
+  if (currentQty + 1 > p.stock){ showToast(`Only ${p.stock} in stock for ${p.name}`, 'error'); return; }
+  if (inCart) inCart.qty += 1;
+  else state.cart.push({ productId, qty:1 });
+  showToast(`Added ${p.name}`, 'success');
+  render();
+}
+
+/* ===================== Inventory view ===================== */
+function renderInventory(){
+  const q = state.invSearch.trim().toLowerCase();
+  const list = state.products.filter(p => !q || p.name.toLowerCase().includes(q) || (p.barcode||'').includes(q));
+  const rows = list.map(p => `
+    <tr class="${p.stock<=state.settings.lowStock?'low-row':''}">
+      <td><strong>${escapeHtml(p.name)}</strong></td>
+      <td><span class="tag">${escapeHtml(p.category||'Uncategorized')}</span></td>
+      <td class="mono">${fmt(p.price)}</td>
+      <td class="mono">${p.stock}${p.stock<=state.settings.lowStock?' <span class="tag" style="background:var(--red-bg);color:#C81E1E;">Low</span>':''}</td>
+      <td class="mono">${p.barcode ? escapeHtml(p.barcode) : '<span style="color:var(--text-2);">— none —</span>'}</td>
+      <td>
+        <div class="row-actions">
+          <button class="icon-btn" data-edit="${p.id}" title="Edit"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+          <button class="icon-btn" data-del="${p.id}" title="Delete"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
+        </div>
+      </td>
+    </tr>`).join('');
+
+  return `
+    <div class="toolbar">
+      <input id="inv-search" type="text" placeholder="Search by name or barcode…" value="${escapeAttr(state.invSearch)}"
+        style="border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:13.5px;width:280px;outline:none;">
+      <button class="btn btn-amber" id="btn-add-product">+ Add product</button>
+    </div>
+    ${list.length ? `
+    <table>
+      <thead><tr><th>Product</th><th>Category</th><th>Price</th><th>Stock</th><th>Barcode</th><th></th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>` : `<div class="empty-state"><svg fill="none" viewBox="0 0 24 24" stroke-width="1.5"><path d="M21 8V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v2"/><path d="M3 8l1 12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2l1-12"/><path d="M3 8h18"/></svg><p>No products found. Add your first product to get started.</p></div>`}
+  `;
+}
+
+/* ===================== Sales view ===================== */
+function renderSales(){
+  if (!state.sales.length){
+    return `<div class="empty-state"><svg fill="none" viewBox="0 0 24 24" stroke-width="1.5"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg><p>No sales yet. Completed transactions will show up here.</p></div>`;
+  }
+  const today = new Date().toDateString();
+  const todaySales = state.sales.filter(s => new Date(s.timestamp).toDateString() === today);
+  const todayTotal = todaySales.reduce((a,s)=>a+s.total,0);
+  const itemsToday = todaySales.reduce((a,s)=>a+s.items.reduce((x,i)=>x+i.qty,0),0);
+
+  const rows = state.sales.slice().reverse().map(s => `
+    <tr data-receipt="${s.id}" style="cursor:pointer;">
+      <td class="mono">#${s.id.slice(-6).toUpperCase()}</td>
+      <td>${new Date(s.timestamp).toLocaleString(undefined,{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}</td>
+      <td>${s.items.reduce((a,i)=>a+i.qty,0)} item(s)</td>
+      <td class="mono"><strong>${fmt(s.total)}</strong></td>
+    </tr>`).join('');
+
+  return `
+    <div class="stat-row">
+      <div class="stat-card"><div class="lbl">Today's sales</div><div class="val">${fmt(todayTotal)}</div></div>
+      <div class="stat-card"><div class="lbl">Transactions today</div><div class="val">${todaySales.length}</div></div>
+      <div class="stat-card"><div class="lbl">Items sold today</div><div class="val">${itemsToday}</div></div>
+      <div class="stat-card"><div class="lbl">All-time transactions</div><div class="val">${state.sales.length}</div></div>
+    </div>
+    <table>
+      <thead><tr><th>Receipt</th><th>Date</th><th>Items</th><th>Total</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+/* ===================== Settings view ===================== */
+function renderSettings(){
+  const s = state.settings;
+  return `
+    <div style="max-width:440px;display:flex;flex-direction:column;gap:16px;">
+      <div class="field">
+        <label>Shop name</label>
+        <input id="set-shop" type="text" value="${escapeAttr(s.shopName)}">
+      </div>
+      <div class="two-col">
+        <div class="field">
+          <label>Currency</label>
+          <select id="set-currency">
+            ${['USD','EUR','GBP','GHS','NGN','KES','ZAR','CAD','AUD'].map(c=>`<option value="${c}" ${s.currency===c?'selected':''}>${c}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field">
+          <label>Tax rate (%)</label>
+          <input id="set-tax" type="number" min="0" step="0.1" value="${s.taxRate}">
+        </div>
+      </div>
+      <div class="field">
+        <label>Low stock alert threshold</label>
+        <input id="set-lowstock" type="number" min="0" step="1" value="${s.lowStock}">
+      </div>
+      <div>
+        <button class="btn btn-amber" id="btn-save-settings">Save settings</button>
+      </div>
+      <div style="margin-top:18px;padding-top:18px;border-top:1px solid var(--line);">
+        <div class="field">
+          <label style="color:#C81E1E;">Danger zone</label>
+        </div>
+        <p style="font-size:12.5px;color:var(--text-2);margin:6px 0 12px;">This inventory and sales data is shared with anyone using this app instance. Clearing it removes all products and sales permanently.</p>
+        <button class="btn btn-danger" id="btn-reset-data">Clear all data</button>
+      </div>
+    </div>
+  `;
+}
+
+/* ===================== Page event binding ===================== */
+function bindPageEvents(){
+  if (state.view === 'pos'){
+    document.getElementById('btn-scan-sale').addEventListener('click', ()=>{
+      openScanner({
+        title:'Scan to sell', sub:'Keep scanning to add multiple items', continuous:true,
+        onDetect: handleSaleScan
+      });
+    });
+    const search = document.getElementById('pos-search');
+    search.addEventListener('input', e=>{ state.posSearch = e.target.value; renderKeepFocus('pos-search'); });
+    document.querySelectorAll('[data-add]').forEach(b=>b.addEventListener('click', ()=> addToCart(b.dataset.add)));
+    document.querySelectorAll('[data-qty]').forEach(b=>b.addEventListener('click', ()=> adjustQty(b.dataset.id, parseInt(b.dataset.qty,10))));
+    document.querySelectorAll('[data-remove]').forEach(b=>b.addEventListener('click', ()=>{ state.cart = state.cart.filter(c=>c.productId!==b.dataset.remove); render(); }));
+    const chargeBtn = document.getElementById('btn-charge');
+    if (chargeBtn) chargeBtn.addEventListener('click', checkout);
+    const clearBtn = document.getElementById('btn-clear-cart');
+    if (clearBtn) clearBtn.addEventListener('click', ()=>{ state.cart=[]; render(); });
+  }
+
+  if (state.view === 'inventory'){
+    document.getElementById('btn-add-product').addEventListener('click', ()=> openProductModal(null));
+    const search = document.getElementById('inv-search');
+    search.addEventListener('input', e=>{ state.invSearch = e.target.value; renderKeepFocus('inv-search'); });
+    document.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click', ()=> openProductModal(b.dataset.edit)));
+    document.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click', ()=> deleteProduct(b.dataset.del)));
+  }
+
+  if (state.view === 'sales'){
+    document.querySelectorAll('[data-receipt]').forEach(tr=>tr.addEventListener('click', ()=> openReceipt(tr.dataset.receipt)));
+  }
+
+  if (state.view === 'settings'){
+    document.getElementById('btn-save-settings').addEventListener('click', async ()=>{
+      state.settings.shopName = document.getElementById('set-shop').value.trim() || 'My Shop';
+      state.settings.currency = document.getElementById('set-currency').value;
+      state.settings.taxRate = parseFloat(document.getElementById('set-tax').value) || 0;
+      state.settings.lowStock = parseInt(document.getElementById('set-lowstock').value,10) || 0;
+      await saveSettings();
+      showToast('Settings saved', 'success');
+      render();
+    });
+    document.getElementById('btn-reset-data').addEventListener('click', async ()=>{
+      if (!confirm('This will permanently delete all products and sales. Continue?')) return;
+      state.products = []; state.cart = []; state.sales = [];
+      await Promise.all([saveProducts(), saveSales()]);
+      showToast('All data cleared');
+      state.view='inventory'; render();
+    });
+  }
+}
+
+// Re-render while preserving focus + caret in a live search input
+function renderKeepFocus(id){
+  const el = document.getElementById(id);
+  const pos = el ? el.selectionStart : null;
+  render();
+  const el2 = document.getElementById(id);
+  if (el2){ el2.focus(); if (pos!==null) el2.setSelectionRange(pos,pos); }
+}
+
+function adjustQty(productId, delta){
+  const ci = state.cart.find(c=>c.productId===productId);
+  const p = state.products.find(x=>x.id===productId);
+  if (!ci || !p) return;
+  const next = ci.qty + delta;
+  if (next <= 0){ state.cart = state.cart.filter(c=>c.productId!==productId); }
+  else if (next > p.stock){ showToast(`Only ${p.stock} in stock`, 'error'); return; }
+  else { ci.qty = next; }
+  render();
+}
+
+/* ===================== Sale scan handling (continuous) ===================== */
+let lastScan = { code:null, time:0 };
+function handleSaleScan(code){
+  const now = Date.now();
+  if (code === lastScan.code && now - lastScan.time < 1400) return;
+  lastScan = { code, time: now };
+  const p = state.products.find(x=>x.barcode && x.barcode === code);
+  if (!p){
+    flashScanNote(`No product matches "${code}"`, true);
+    return;
+  }
+  const inCart = state.cart.find(c=>c.productId===p.id);
+  const currentQty = inCart ? inCart.qty : 0;
+  if (currentQty + 1 > p.stock){
+    flashScanNote(`${p.name} is out of stock`, true);
+    return;
+  }
+  if (inCart) inCart.qty += 1; else state.cart.push({ productId:p.id, qty:1 });
+  flashScanNote(`Added ${p.name} · ${fmt(p.price)}`, false);
+  if (state.view === 'pos') render();
+}
+
+function flashScanNote(msg, isError){
+  const note = document.getElementById('scan-note');
+  note.textContent = msg;
+  note.style.color = isError ? '#FF8080' : '#8CF0C0';
+}
+
+/* ===================== Checkout ===================== */
+async function checkout(){
+  if (!state.cart.length) return;
+  const items = state.cart.map(ci=>{
+    const p = state.products.find(x=>x.id===ci.productId);
+    return { productId:p.id, name:p.name, price:p.price, qty:ci.qty };
+  });
+  const subtotal = cartSubtotal();
+  const tax = subtotal * (state.settings.taxRate/100);
+  const total = subtotal + tax;
+  const sale = { id: genId(), timestamp: Date.now(), items, subtotal, tax, total };
+
+  // decrement stock
+  items.forEach(it=>{
+    const p = state.products.find(x=>x.id===it.productId);
+    if (p) p.stock = Math.max(0, p.stock - it.qty);
+  });
+  state.sales.push(sale);
+  state.cart = [];
+
+  await Promise.all([saveProducts(), saveSales()]);
+  render();
+  openReceipt(sale.id);
+  showToast('Sale completed', 'success');
+}
+
+/* ===================== Receipt modal ===================== */
+function openReceipt(saleId){
+  const s = state.sales.find(x=>x.id===saleId);
+  if (!s) return;
+  const body = document.getElementById('receipt-modal-body');
+  body.innerHTML = `
+    <div class="receipt-top"></div>
+    <div class="receipt-head">
+      <h3>${escapeHtml(state.settings.shopName||'My Shop')}</h3>
+      <div class="rmeta">#${s.id.slice(-6).toUpperCase()} · ${new Date(s.timestamp).toLocaleString()}</div>
+    </div>
+    <div class="receipt-body" style="max-height:300px;">
+      ${s.items.map(i=>`<div class="r-item"><div class="r-name">${escapeHtml(i.name)}<small>${i.qty} × ${fmt(i.price)}</small></div><div class="r-line-total">${fmt(i.price*i.qty)}</div></div>`).join('')}
+    </div>
+    <div class="receipt-tot" style="border-top:1px solid var(--line);">
+      <div class="tot-row"><span>Subtotal</span><span>${fmt(s.subtotal)}</span></div>
+      <div class="tot-row"><span>Tax</span><span>${fmt(s.tax)}</span></div>
+      <div class="tot-row grand"><span>Total</span><span>${fmt(s.total)}</span></div>
+    </div>`;
+  document.getElementById('receipt-overlay').classList.add('open');
+}
+function closeReceipt(){ document.getElementById('receipt-overlay').classList.remove('open'); }
+
+/* ===================== Product modal ===================== */
+let editingId = null;
+function openProductModal(id){
+  editingId = id;
+  const p = id ? state.products.find(x=>x.id===id) : null;
+  document.getElementById('product-modal-title').textContent = p ? 'Edit product' : 'Add product';
+  document.getElementById('in-name').value = p ? p.name : '';
+  document.getElementById('in-price').value = p ? p.price : '';
+  document.getElementById('in-stock').value = p ? p.stock : '';
+  document.getElementById('in-category').value = p ? (p.category||'') : '';
+  document.getElementById('in-barcode').value = p ? (p.barcode||'') : '';
+  ['f-name','f-price','f-stock','f-barcode'].forEach(id=>document.getElementById(id).classList.remove('has-err'));
+  document.getElementById('product-overlay').classList.add('open');
+}
+function closeProductModal(){ document.getElementById('product-overlay').classList.remove('open'); editingId=null; }
+
+async function saveProductForm(){
+  const name = document.getElementById('in-name').value.trim();
+  const price = parseFloat(document.getElementById('in-price').value);
+  const stock = parseInt(document.getElementById('in-stock').value,10);
+  const category = document.getElementById('in-category').value.trim();
+  const barcode = document.getElementById('in-barcode').value.trim();
+
+  let hasErr = false;
+  const setErr = (fid, bad) => { document.getElementById(fid).classList.toggle('has-err', bad); if (bad) hasErr = true; };
+  setErr('f-name', !name);
+  setErr('f-price', !(price >= 0));
+  setErr('f-stock', !(Number.isInteger(stock) && stock >= 0));
+  const dupe = barcode && state.products.some(p => p.barcode === barcode && p.id !== editingId);
+  setErr('f-barcode', dupe);
+  if (hasErr) return;
+
+  if (editingId){
+    const p = state.products.find(x=>x.id===editingId);
+    Object.assign(p, { name, price, stock, category, barcode });
+  } else {
+    state.products.push({ id: genId(), name, price, stock, category, barcode, createdAt: Date.now() });
+  }
+  await saveProducts();
+  closeProductModal();
+  showToast('Product saved', 'success');
+  render();
+}
+
+async function deleteProduct(id){
+  const p = state.products.find(x=>x.id===id);
+  if (!p) return;
+  if (!confirm(`Delete "${p.name}"? This can't be undone.`)) return;
+  state.products = state.products.filter(x=>x.id!==id);
+  state.cart = state.cart.filter(c=>c.productId!==id);
+  await saveProducts();
+  showToast('Product deleted');
+  render();
+}
+
+/* ===================== Scanner (camera) — persistent DOM, never re-rendered ===================== */
+let html5QrCode = null;
+let scannerCtx = { onDetect:null, continuous:false };
+let currentFacingMode = 'environment';
+
+function openScanner(opts){
+  scannerCtx = opts;
+  document.getElementById('scan-title').textContent = opts.title || 'Scan barcode';
+  document.getElementById('scan-sub').textContent = opts.sub || '';
+  document.getElementById('scan-note').textContent = 'Requesting camera access…';
+  document.getElementById('scan-note').style.color = '#C8CCD8';
+  document.getElementById('manual-barcode').value = '';
+  document.getElementById('scanner-overlay').classList.add('open');
+  startCamera();
+}
+
+function startCamera(){
+  if (typeof Html5Qrcode === 'undefined'){
+    document.getElementById('scan-note').textContent = 'Camera library failed to load — enter the barcode manually below.';
+    document.getElementById('scan-note').style.color = '#FF8080';
+    return;
+  }
+  html5QrCode = new Html5Qrcode('scanner-view', { verbose:false });
+  html5QrCode.start(
+    { facingMode: currentFacingMode },
+    { fps: 12, qrbox: { width: 280, height: 150 } },
+    (decodedText) => {
+      if (scannerCtx.onDetect) scannerCtx.onDetect(decodedText);
+      if (!scannerCtx.continuous) closeScanner();
+    },
+    () => { /* per-frame miss — ignore */ }
+  ).then(()=>{
+    document.getElementById('scan-note').textContent = scannerCtx.continuous ? 'Scanning… hold steady over a barcode' : 'Align the barcode inside the frame';
+  }).catch(()=>{
+    document.getElementById('scan-note').textContent = 'Camera unavailable — enter the barcode manually below.';
+    document.getElementById('scan-note').style.color = '#FF8080';
+  });
+}
+
+function stopCamera(){
+  if (html5QrCode){
+    const inst = html5QrCode;
+    html5QrCode = null;
+    inst.stop().then(()=>inst.clear()).catch(()=>{});
+  }
+}
+
+function closeScanner(){
+  stopCamera();
+  document.getElementById('scanner-overlay').classList.remove('open');
+  scannerCtx = { onDetect:null, continuous:false };
+}
+
+function flipCamera(){
+  currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
+  stopCamera();
+  setTimeout(startCamera, 250);
+}
+
+/* ===================== Utils ===================== */
+function escapeHtml(str){
+  return String(str==null?'':str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+function escapeAttr(str){ return escapeHtml(str); }
+
+init();
 })();
 </script>
 </body>
