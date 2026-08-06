@@ -2,7 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#1F4736">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Till">
+<meta name="description" content="Simple point-of-sale app with phone-camera barcode scanning.">
 <title>Till — POS</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -46,7 +52,7 @@
   header{
     background:var(--forest);
     color:var(--paper);
-    padding:16px 18px 14px;
+    padding:calc(16px + env(safe-area-inset-top)) 18px 14px;
     position:relative;
     z-index:2;
   }
@@ -143,7 +149,7 @@
     background:none;
     border:none;
     color:rgba(246,241,228,0.55);
-    padding:10px 4px 12px;
+    padding:10px 4px calc(12px + env(safe-area-inset-bottom));
     display:flex;
     flex-direction:column;
     align-items:center;
@@ -464,12 +470,55 @@ const money = n => '₵' + (Math.round(n*100)/100).toFixed(2);
 
 /* ---------------------------------------------------------
    STORAGE
+   Uses the browser's own local storage on this device, so
+   the app works fully standalone (no server, no account).
+   Wrapped behind a small db object so a real backend can be
+   swapped in later without touching the rest of the app.
 --------------------------------------------------------- */
-async function loadAll(){
+const STORAGE_PREFIX = 'tillpos:';
+const STORAGE_VERSION = 1;
+
+const db = {
+  get(key){
+    try{
+      const raw = window.localStorage.getItem(STORAGE_PREFIX + key);
+      return raw ? JSON.parse(raw) : null;
+    }catch(e){
+      console.warn('Storage read failed for', key, e);
+      return null;
+    }
+  },
+  set(key, value){
+    try{
+      window.localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(value));
+      return true;
+    }catch(e){
+      console.warn('Storage write failed for', key, e);
+      if(e && e.name === 'QuotaExceededError'){
+        showToast('Device storage is full — could not save.');
+      }
+      return false;
+    }
+  }
+};
+
+function storageAvailable(){
   try{
-    const inv = await window.storage.get('pos-inventory');
-    inventory = inv ? JSON.parse(inv.value) : null;
-  }catch(e){ inventory = null; }
+    const t = '__tillpos_test__';
+    window.localStorage.setItem(t, '1');
+    window.localStorage.removeItem(t);
+    return true;
+  }catch(e){ return false; }
+}
+
+async function loadAll(){
+  if(!storageAvailable()){
+    showToast('This browser is blocking local storage — data won\u2019t be saved between visits.');
+  }
+  const meta = db.get('meta');
+  if(!meta) db.set('meta', { version: STORAGE_VERSION });
+
+  inventory = db.get('inventory');
   if(!inventory){
     inventory = {
       "0000000001": {barcode:"0000000001", name:"House Blend Coffee 12oz", price:8.50, stock:24},
@@ -478,23 +527,48 @@ async function loadAll(){
     };
     saveInventory();
   }
-  try{
-    const c = await window.storage.get('pos-cart');
-    cart = c ? JSON.parse(c.value) : [];
-  }catch(e){ cart = []; }
-  try{
-    const s = await window.storage.get('pos-sales');
-    salesLog = s ? JSON.parse(s.value) : [];
-  }catch(e){ salesLog = []; }
+  cart = db.get('cart') || [];
+  salesLog = db.get('sales') || [];
 }
-async function saveInventory(){
-  try{ await window.storage.set('pos-inventory', JSON.stringify(inventory)); }catch(e){}
+function saveInventory(){ db.set('inventory', inventory); }
+function saveCart(){ db.set('cart', cart); }
+function saveSales(){ db.set('sales', salesLog.slice(-200)); }
+
+function exportBackup(){
+  const payload = {
+    exportedAt: new Date().toISOString(),
+    version: STORAGE_VERSION,
+    inventory, cart, sales: salesLog
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type:'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const stamp = new Date().toISOString().slice(0,10);
+  a.href = url;
+  a.download = `till-pos-backup-${stamp}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
-async function saveCart(){
-  try{ await window.storage.set('pos-cart', JSON.stringify(cart)); }catch(e){}
-}
-async function saveSales(){
-  try{ await window.storage.set('pos-sales', JSON.stringify(salesLog.slice(-20))); }catch(e){}
+
+function importBackup(file){
+  const reader = new FileReader();
+  reader.onload = () => {
+    try{
+      const data = JSON.parse(reader.result);
+      if(!data || typeof data.inventory !== 'object') throw new Error('bad file');
+      inventory = data.inventory || {};
+      cart = Array.isArray(data.cart) ? data.cart : [];
+      salesLog = Array.isArray(data.sales) ? data.sales : [];
+      saveInventory(); saveCart(); saveSales();
+      showToast('Backup restored.');
+      render();
+    }catch(e){
+      showToast('Could not read that backup file.');
+    }
+  };
+  reader.readAsText(file);
 }
 
 /* ---------------------------------------------------------
@@ -584,6 +658,42 @@ function renderNameSearchResults(query){
 function startScanner(){
   const placeholder = document.getElementById('scanPlaceholder');
   const status = document.getElementById('cameraStatus');
+
+  const isSecure = window.isSecureContext || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  if(!isSecure){
+    if(placeholder){
+      placeholder.style.display='flex';
+      placeholder.style.alignItems='center';
+      placeholder.style.justifyContent='center';
+      placeholder.textContent = 'Camera access needs a secure (https) connection. Open this page over https, or type the barcode instead.';
+    }
+    if(status){ status.textContent = 'Camera unavailable on this connection'; status.className = 'camera-status error'; }
+    scanning=false;
+    return;
+  }
+  if(typeof Quagga === 'undefined'){
+    if(placeholder){
+      placeholder.style.display='flex';
+      placeholder.style.alignItems='center';
+      placeholder.style.justifyContent='center';
+      placeholder.textContent = 'Scanner library failed to load — check your connection, or type the barcode instead.';
+    }
+    if(status){ status.textContent = 'Scanner unavailable'; status.className = 'camera-status error'; }
+    scanning=false;
+    return;
+  }
+  if(!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)){
+    if(placeholder){
+      placeholder.style.display='flex';
+      placeholder.style.alignItems='center';
+      placeholder.style.justifyContent='center';
+      placeholder.textContent = 'This browser doesn\u2019t support camera access — type the barcode instead.';
+    }
+    if(status){ status.textContent = 'Camera not supported'; status.className = 'camera-status error'; }
+    scanning=false;
+    return;
+  }
+
   if(status){ status.textContent = 'Requesting camera access…'; status.className = 'camera-status'; }
 
   Quagga.init({
@@ -796,6 +906,18 @@ function renderItems(query){
         <input type="text" id="itemSearch" placeholder="Search by name or barcode…" autocomplete="off" value="${escapeAttr(query||'')}">
       </div>` : ''}
     <div id="itemsListBox">${renderItemsList(query)}</div>
+
+    <h2 class="section-title" style="margin-top:22px;">Backup &amp; restore</h2>
+    <div class="ticket"><div class="ticket-body">
+      <p style="margin:0 0 12px; font-size:12.5px; color:var(--ink-soft); line-height:1.5;">
+        Your items and sales are saved on this device only. Export a backup now and then to keep a copy safe.
+      </p>
+      <div class="row">
+        <button class="btn btn-ghost" id="exportBtn">Export backup</button>
+        <button class="btn btn-ghost" id="importBtn">Restore backup</button>
+      </div>
+      <input type="file" id="importFileInput" accept="application/json" style="display:none;">
+    </div></div>
   `;
 }
 
@@ -1000,6 +1122,22 @@ function attachHandlers(){
         attachItemsListHandlers();
       });
     }
+    const exportBtn = document.getElementById('exportBtn');
+    if(exportBtn) exportBtn.onclick = exportBackup;
+    const importBtn = document.getElementById('importBtn');
+    const importFileInput = document.getElementById('importFileInput');
+    if(importBtn && importFileInput){
+      importBtn.onclick = ()=> importFileInput.click();
+      importFileInput.onchange = (e)=>{
+        const file = e.target.files && e.target.files[0];
+        if(file){
+          if(confirm('Restoring a backup will replace all current items, cart and sales on this device. Continue?')){
+            importBackup(file);
+          }
+        }
+        importFileInput.value = '';
+      };
+    }
   }
 
   if(currentTab==='addItem'){
@@ -1073,8 +1211,17 @@ function showToast(msg){
    INIT
 --------------------------------------------------------- */
 (async function init(){
-  await loadAll();
-  render();
+  try{
+    await loadAll();
+    render();
+  }catch(e){
+    console.error('Till POS failed to start', e);
+    document.getElementById('main').innerHTML = `
+      <div class="empty-state">
+        <div class="t">Something went wrong loading Till</div>
+        <div class="d">Try reloading the page. If this keeps happening, clear this site's data in your browser settings.</div>
+      </div>`;
+  }
 })();
 </script>
 </body>
