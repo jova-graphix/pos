@@ -34,6 +34,7 @@
     font-family:'Inter',system-ui,sans-serif;
     -webkit-font-smoothing:antialiased;
     overflow:hidden;
+    overscroll-behavior:none;
   }
   h1,h2,h3,.display{font-family:'Space Grotesk',sans-serif;}
   .mono{font-family:'IBM Plex Mono',monospace;}
@@ -42,7 +43,7 @@
   ::selection{background:var(--amber);color:var(--ink);}
 
   /* ---------- App shell ---------- */
-  #shell{display:flex;height:100vh;width:100vw;}
+  #shell{display:flex;height:100vh;height:100dvh;width:100vw;}
 
   .barcode-mark{display:flex;align-items:flex-end;gap:2px;height:22px;}
   .barcode-mark i{display:block;background:var(--amber);width:2px;}
@@ -217,6 +218,8 @@
 
   /* ---------- Tables ---------- */
   .toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:12px;flex-wrap:wrap;}
+  .toolbar-search{border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:13.5px;width:280px;outline:none;background:var(--panel);}
+  .toolbar-search:focus{border-color:var(--amber);}
   table{width:100%;border-collapse:collapse;background:var(--panel);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
   thead th{
     text-align:left;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-2);
@@ -275,7 +278,10 @@
     position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
     width:min(78%,340px);height:150px;border-radius:16px;pointer-events:none;
     box-shadow:0 0 0 2000px rgba(10,11,16,.45);border:2px solid rgba(255,255,255,.85);
+    transition:border-color .12s ease;
   }
+  .reticle.hit{border-color:var(--green);}
+  .reticle.miss{border-color:var(--laser);}
   .reticle::before,.reticle::after{content:"";position:absolute;left:0;right:0;height:2px;background:var(--laser);box-shadow:0 0 8px 1px var(--laser);}
   .reticle .laser-line{position:absolute;left:4%;right:4%;height:2px;background:var(--laser);box-shadow:0 0 10px 2px var(--laser);animation:sweep 1.6s ease-in-out infinite;}
   @keyframes sweep{0%{top:8%;}50%{top:88%;}100%{top:8%;}}
@@ -292,8 +298,10 @@
   }
   .scan-manual input::placeholder{color:#6C7288;}
   .scan-flip{flex:0 0 auto;}
-  .flip-row{display:flex;justify-content:center;padding-bottom:10px;}
+  .flip-row{display:flex;justify-content:center;gap:10px;padding-bottom:10px;}
   .flip-btn{background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.15);border-radius:100px;padding:7px 14px;font-size:12px;display:flex;gap:6px;align-items:center;}
+  .torch-btn{background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.15);border-radius:100px;padding:7px 14px;font-size:12px;display:none;gap:6px;align-items:center;}
+  .torch-btn.active{background:var(--amber);color:var(--ink);border-color:var(--amber);}
 
   /* ---------- Toast ---------- */
   #toast-container{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:200;display:flex;flex-direction:column;gap:8px;align-items:center;}
@@ -317,15 +325,70 @@
   @media (max-width:880px){
     #shell{flex-direction:column;}
     #sidebar{
-      order:2;width:100%;flex-direction:row;justify-content:space-around;padding:8px 6px;
-      border-top:1px solid var(--ink-2);
+      order:2;width:100%;flex-direction:row;justify-content:space-around;
+      padding:8px 6px calc(8px + env(safe-area-inset-bottom));
+      border-top:1px solid var(--ink-2);flex:0 0 auto;
     }
     #sidebar .brand{display:none;}
-    .nav-btn{width:auto;flex:1;}
-    #main-col{order:1;height:calc(100vh - 74px);}
+    .nav-btn{width:auto;flex:1;min-height:52px;}
+    #main-col{order:1;min-height:0;flex:1 1 auto;}
     .pos-grid{flex-direction:column;}
     .pos-right{width:100%;height:340px;}
     .stat-row{grid-template-columns:repeat(2,1fr);}
+
+    /* Inputs at 16px+ stop iOS Safari from zooming the page in on focus */
+    input,select,textarea{font-size:16px;}
+    .btn-sm{font-size:13px;}
+
+    /* Bigger touch targets */
+    .icon-btn{width:36px;height:36px;}
+    .icon-btn svg{width:16px;height:16px;}
+    .qty-ctl button{width:30px;height:30px;}
+    .r-remove{padding:6px;font-size:17px;}
+
+    /* Toolbar stacks and search goes full width */
+    .toolbar{flex-direction:column;align-items:stretch;}
+    .toolbar-search{width:100%;}
+
+    /* Cart bar respects the home-indicator safe area */
+    .cart-float-wrap{padding-bottom:env(safe-area-inset-bottom);}
+
+    /* Nested scroll areas get proper momentum scrolling on iOS */
+    #page,.product-grid,.receipt-body,.modal-body{
+      -webkit-overflow-scrolling:touch;overscroll-behavior:contain;
+    }
+
+    /* Tables become stacked cards instead of overflowing horizontally */
+    table,thead,tbody,tr,td{display:block;width:100%;}
+    table{background:none;box-shadow:none;border-radius:0;}
+    thead{position:absolute;left:-9999px;}
+    tbody tr{
+      background:var(--panel);border-radius:12px;box-shadow:var(--shadow);
+      margin-bottom:10px;padding:10px 14px;border-bottom:none;
+    }
+    tbody tr.low-row{box-shadow:var(--shadow), inset 3px 0 0 var(--amber);}
+    tbody td{
+      display:flex;align-items:center;justify-content:space-between;gap:12px;
+      padding:7px 0;border-bottom:1px dashed var(--line);text-align:right;
+    }
+    tbody td:last-child{border-bottom:none;}
+    tbody td::before{
+      content:attr(data-label);font-size:10.5px;font-weight:600;color:var(--text-2);
+      text-transform:uppercase;letter-spacing:.04em;text-align:left;
+    }
+    tbody td.row-actions-cell{padding-top:10px;}
+    tbody td.row-actions-cell::before{content:none;}
+    .row-actions{width:100%;justify-content:flex-end;}
+  }
+
+  @media (max-width:480px){
+    #topbar{padding:0 14px;gap:8px;}
+    #topbar h1{font-size:16px;}
+    #topbar .sub{display:none;}
+    #clock{display:none;}
+    #page{padding:16px 14px 28px;}
+    .scan-cta{flex-direction:column;align-items:flex-start;gap:12px;}
+    .scan-cta button{width:100%;}
   }
 </style>
 </head>
@@ -406,7 +469,10 @@
     </div>
   </div>
   <div class="scan-note" id="scan-note">Requesting camera access…</div>
-  <div class="flip-row"><button class="flip-btn" id="flip-cam">⟲ Flip camera</button></div>
+  <div class="flip-row">
+    <button class="flip-btn" id="flip-cam">⟲ Flip camera</button>
+    <button class="torch-btn" id="torch-btn" data-on="0">💡 Flashlight</button>
+  </div>
   <div class="scan-manual">
     <input id="manual-barcode" type="text" placeholder="Or type the barcode number and press Enter">
   </div>
@@ -512,6 +578,7 @@ function bindStaticEvents(){
   // Scanner modal
   document.getElementById('scan-close').addEventListener('click', closeScanner);
   document.getElementById('flip-cam').addEventListener('click', flipCamera);
+  document.getElementById('torch-btn').addEventListener('click', toggleTorch);
   document.getElementById('manual-barcode').addEventListener('keydown', (e)=>{
     if (e.key === 'Enter'){
       const v = e.target.value.trim();
@@ -676,12 +743,12 @@ function renderInventory(){
   const list = state.products.filter(p => !q || p.name.toLowerCase().includes(q) || (p.barcode||'').includes(q));
   const rows = list.map(p => `
     <tr class="${p.stock<=state.settings.lowStock?'low-row':''}">
-      <td><strong>${escapeHtml(p.name)}</strong></td>
-      <td><span class="tag">${escapeHtml(p.category||'Uncategorized')}</span></td>
-      <td class="mono">${fmt(p.price)}</td>
-      <td class="mono">${p.stock}${p.stock<=state.settings.lowStock?' <span class="tag" style="background:var(--red-bg);color:#C81E1E;">Low</span>':''}</td>
-      <td class="mono">${p.barcode ? escapeHtml(p.barcode) : '<span style="color:var(--text-2);">— none —</span>'}</td>
-      <td>
+      <td data-label="Product"><strong>${escapeHtml(p.name)}</strong></td>
+      <td data-label="Category"><span class="tag">${escapeHtml(p.category||'Uncategorized')}</span></td>
+      <td data-label="Price" class="mono">${fmt(p.price)}</td>
+      <td data-label="Stock" class="mono">${p.stock}${p.stock<=state.settings.lowStock?' <span class="tag" style="background:var(--red-bg);color:#C81E1E;">Low</span>':''}</td>
+      <td data-label="Barcode" class="mono">${p.barcode ? escapeHtml(p.barcode) : '<span style="color:var(--text-2);">— none —</span>'}</td>
+      <td class="row-actions-cell">
         <div class="row-actions">
           <button class="icon-btn" data-edit="${p.id}" title="Edit"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
           <button class="icon-btn" data-del="${p.id}" title="Delete"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
@@ -691,8 +758,7 @@ function renderInventory(){
 
   return `
     <div class="toolbar">
-      <input id="inv-search" type="text" placeholder="Search by name or barcode…" value="${escapeAttr(state.invSearch)}"
-        style="border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:13.5px;width:280px;outline:none;">
+      <input id="inv-search" class="toolbar-search" type="text" placeholder="Search by name or barcode…" value="${escapeAttr(state.invSearch)}">
       <button class="btn btn-amber" id="btn-add-product">+ Add product</button>
     </div>
     ${list.length ? `
@@ -765,10 +831,10 @@ function renderSales(){
 
   const rows = state.sales.slice().reverse().map(s => `
     <tr data-receipt="${s.id}" style="cursor:pointer;">
-      <td class="mono">#${s.id.slice(-6).toUpperCase()}</td>
-      <td>${new Date(s.timestamp).toLocaleString(undefined,{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}</td>
-      <td>${s.items.reduce((a,i)=>a+i.qty,0)} item(s)</td>
-      <td class="mono"><strong>${fmt(s.total)}</strong></td>
+      <td data-label="Receipt" class="mono">#${s.id.slice(-6).toUpperCase()}</td>
+      <td data-label="Date">${new Date(s.timestamp).toLocaleString(undefined,{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}</td>
+      <td data-label="Items">${s.items.reduce((a,i)=>a+i.qty,0)} item(s)</td>
+      <td data-label="Total" class="mono"><strong>${fmt(s.total)}</strong></td>
     </tr>`).join('');
 
   return `
@@ -926,7 +992,7 @@ function handleSaleScan(code){
   const now = Date.now();
   if (code === lastScan.code && now - lastScan.time < 1400) return;
   lastScan = { code, time: now };
-  const p = state.products.find(x=>x.barcode && x.barcode === code);
+  const p = state.products.find(x=>x.barcode && barcodesMatch(x.barcode, code));
   if (!p){
     flashScanNote(`No product matches "${code}"`, true);
     return;
@@ -946,6 +1012,18 @@ function flashScanNote(msg, isError){
   const note = document.getElementById('scan-note');
   note.textContent = msg;
   note.style.color = isError ? '#FF8080' : '#8CF0C0';
+  // Give a clear, unmissable signal for every scan (continuous mode has no other
+  // pause to confirm a scan landed) so cashiers aren't left wondering whether an
+  // item registered — the single-shot "add product" scan doesn't need this because
+  // it closes the scanner immediately on success.
+  const reticle = document.getElementById('reticle');
+  if (reticle){
+    reticle.classList.remove('hit','miss');
+    void reticle.offsetWidth;
+    reticle.classList.add(isError ? 'miss' : 'hit');
+    setTimeout(()=>reticle.classList.remove('hit','miss'), 450);
+  }
+  if (navigator.vibrate) navigator.vibrate(isError ? [40,50,40] : 30);
 }
 
 /* ===================== Checkout ===================== */
@@ -1061,7 +1139,7 @@ async function saveProductForm(){
   setErr('f-name', !name);
   setErr('f-price', !(price >= 0));
   setErr('f-stock', !(Number.isInteger(stock) && stock >= 0));
-  const dupe = barcode && state.products.some(p => p.barcode === barcode && p.id !== editingId);
+  const dupe = barcode && state.products.some(p => barcodesMatch(p.barcode, barcode) && p.id !== editingId);
   setErr('f-barcode', dupe);
   if (hasErr) return;
 
@@ -1110,10 +1188,36 @@ function startCamera(){
     document.getElementById('scan-note').style.color = '#FF8080';
     return;
   }
-  html5QrCode = new Html5Qrcode('scanner-view', { verbose:false });
+  // Restrict decoding to the formats actually used at retail. The default config tries
+  // every format the library knows (QR, Aztec, PDF417, Data Matrix, etc.), which slows
+  // frame processing down and made scanning noticeably less reliable during a live,
+  // handheld, continuous sell-side scan than the single, careful, well-lit scan used
+  // when adding a product.
+  const retailFormats = (typeof Html5QrcodeSupportedFormats !== 'undefined') ? [
+    Html5QrcodeSupportedFormats.EAN_13,
+    Html5QrcodeSupportedFormats.EAN_8,
+    Html5QrcodeSupportedFormats.UPC_A,
+    Html5QrcodeSupportedFormats.UPC_E,
+    Html5QrcodeSupportedFormats.UPC_EAN_EXTENSION,
+    Html5QrcodeSupportedFormats.CODE_128,
+    Html5QrcodeSupportedFormats.CODE_39,
+    Html5QrcodeSupportedFormats.CODE_93,
+    Html5QrcodeSupportedFormats.ITF,
+    Html5QrcodeSupportedFormats.CODABAR,
+    Html5QrcodeSupportedFormats.QR_CODE
+  ] : undefined;
+
+  html5QrCode = new Html5Qrcode('scanner-view', {
+    verbose:false,
+    formatsToSupport: retailFormats,
+    // Uses the phone/browser's native barcode detector when available (most current
+    // Android Chrome), which is faster and far more reliable at reading a barcode
+    // while it's moving under a handheld phone than the pure-JS decoder fallback.
+    experimentalFeatures: { useBarCodeDetectorIfSupported: true }
+  });
   html5QrCode.start(
     { facingMode: currentFacingMode },
-    { fps: 12, qrbox: { width: 280, height: 150 } },
+    { fps: 15, qrbox: { width: 300, height: 160 }, aspectRatio: 1.7777778 },
     (decodedText) => {
       if (scannerCtx.onDetect) scannerCtx.onDetect(decodedText);
       if (!scannerCtx.continuous) closeScanner();
@@ -1121,6 +1225,7 @@ function startCamera(){
     () => { /* per-frame miss — ignore */ }
   ).then(()=>{
     document.getElementById('scan-note').textContent = scannerCtx.continuous ? 'Scanning… hold steady over a barcode' : 'Align the barcode inside the frame';
+    updateTorchAvailability();
   }).catch(()=>{
     document.getElementById('scan-note').textContent = 'Camera unavailable — enter the barcode manually below.';
     document.getElementById('scan-note').style.color = '#FF8080';
@@ -1133,6 +1238,8 @@ function stopCamera(){
     html5QrCode = null;
     inst.stop().then(()=>inst.clear()).catch(()=>{});
   }
+  const torchBtn = document.getElementById('torch-btn');
+  if (torchBtn){ torchBtn.style.display = 'none'; torchBtn.dataset.on = '0'; torchBtn.classList.remove('active'); }
 }
 
 function closeScanner(){
@@ -1147,11 +1254,60 @@ function flipCamera(){
   setTimeout(startCamera, 250);
 }
 
+// Shows the flashlight toggle only on devices/cameras that actually support it
+// (mainly rear cameras on Android) — a common reason sell-side scans miss is a
+// dim stockroom or counter, which a static "add a product" scan rarely hits.
+function updateTorchAvailability(){
+  const btn = document.getElementById('torch-btn');
+  if (!btn) return;
+  try{
+    const caps = html5QrCode && html5QrCode.getRunningTrackCapabilities ? html5QrCode.getRunningTrackCapabilities() : null;
+    btn.style.display = (caps && caps.torch) ? 'inline-flex' : 'none';
+    btn.dataset.on = '0';
+    btn.classList.remove('active');
+  }catch(e){
+    btn.style.display = 'none';
+  }
+}
+
+function toggleTorch(){
+  if (!html5QrCode || !html5QrCode.applyVideoConstraints) return;
+  const btn = document.getElementById('torch-btn');
+  const turnOn = btn.dataset.on !== '1';
+  html5QrCode.applyVideoConstraints({ torch: turnOn, advanced:[{ torch: turnOn }] }).then(()=>{
+    btn.dataset.on = turnOn ? '1' : '0';
+    btn.classList.toggle('active', turnOn);
+  }).catch(()=>{ showToast('Flashlight unavailable on this camera', 'error'); });
+}
+
 /* ===================== Utils ===================== */
 function escapeHtml(str){
   return String(str==null?'':str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
 function escapeAttr(str){ return escapeHtml(str); }
+
+// Barcode matching used to be a plain === on raw scanner output. That's fragile:
+// a camera scan can pick up stray whitespace, and — much more commonly — the same
+// physical barcode gets reported as a 12-digit UPC-A by one read and a 13-digit
+// EAN-13 (UPC-A with a leading 0) by another, depending on the decoder/camera. A
+// product saved with one form and scanned back at the register with the other
+// form used to silently fail to match. Normalize + compare against both variants.
+function normalizeBarcode(code){
+  return String(code == null ? '' : code).trim().replace(/\s+/g, '');
+}
+function barcodeVariants(code){
+  const n = normalizeBarcode(code);
+  const variants = new Set([n]);
+  if (/^\d{12}$/.test(n)) variants.add('0' + n);          // UPC-A -> EAN-13
+  if (/^0\d{12}$/.test(n)) variants.add(n.slice(1));       // EAN-13 -> UPC-A
+  return variants;
+}
+function barcodesMatch(a, b){
+  if (!a || !b) return false;
+  const va = barcodeVariants(a);
+  for (const v of barcodeVariants(b)) if (va.has(v)) return true;
+  return false;
+}
 
 init();
 })();
