@@ -272,6 +272,19 @@
   .scan-head .st p{margin:2px 0 0;font-size:11.5px;color:#9AA0B4;}
   .scan-x{width:34px;height:34px;border-radius:100px;background:rgba(255,255,255,.1);border:none;color:#fff;font-size:16px;}
   .scan-stage{flex:1;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+  .scan-success{
+    position:absolute;inset:0;z-index:3;display:none;align-items:center;justify-content:center;
+    flex-direction:column;gap:12px;background:rgba(10,11,16,.82);
+  }
+  .scan-success.show{display:flex;}
+  .scan-success-check{
+    width:76px;height:76px;border-radius:100%;background:var(--green);color:#fff;
+    display:flex;align-items:center;justify-content:center;
+    animation:scan-pop .28s cubic-bezier(.34,1.56,.64,1);
+  }
+  .scan-success-check svg{width:38px;height:38px;}
+  .scan-success-label{color:#fff;font-weight:600;font-size:14.5px;font-family:'Space Grotesk',sans-serif;text-align:center;padding:0 24px;}
+  @keyframes scan-pop{from{transform:scale(.4);opacity:0;}to{transform:scale(1);opacity:1;}}
   #scanner-view{width:100%;max-width:520px;}
   #scanner-view video{width:100% !important;border-radius:14px;}
   .reticle{
@@ -466,6 +479,12 @@
     <div class="reticle" id="reticle">
       <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
       <div class="laser-line"></div>
+    </div>
+    <div class="scan-success" id="scan-success">
+      <div class="scan-success-check">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+      </div>
+      <div class="scan-success-label" id="scan-success-label">Added</div>
     </div>
   </div>
   <div class="scan-note" id="scan-note">Requesting camera access…</div>
@@ -932,11 +951,18 @@ function bindPageEvents(){
       openScanner({
         title:'Scan product barcode',
         sub:'Line the barcode up inside the frame',
-        continuous:false,
+        continuous:true, // we close it ourselves below, once the checkmark has been shown
         onDetect:(code)=>{
+          if (scanLocked) return;
+          scanLocked = true;
           document.getElementById('in-barcode').value = code;
-          closeScanner();
-          showToast('Barcode captured');
+          showScanSuccessMark('Captured');
+          const session = scanSessionId;
+          setTimeout(()=>{
+            if (session !== scanSessionId) return;
+            closeScanner();
+            showToast('Barcode captured');
+          }, 900);
         }
       });
     });
@@ -987,8 +1013,10 @@ function adjustQty(productId, delta){
 }
 
 /* ===================== Sale scan handling (continuous) ===================== */
+const SCAN_CONFIRM_MS = 1600; // how long the checkmark stays up before the camera resumes
 let lastScan = { code:null, time:0 };
 function handleSaleScan(code){
+  if (scanLocked) return; // a successful scan is already being confirmed — ignore everything else until it clears
   const now = Date.now();
   if (code === lastScan.code && now - lastScan.time < 1400) return;
   lastScan = { code, time: now };
@@ -1006,6 +1034,31 @@ function handleSaleScan(code){
   if (inCart) inCart.qty += 1; else state.cart.push({ productId:p.id, qty:1 });
   flashScanNote(`Added ${p.name} · ${fmt(p.price)}`, false);
   if (state.view === 'pos') render();
+
+  // Scanning the same product again right after is treated as "I'm done" and
+  // returns to Sell; otherwise the camera just resumes for the next product.
+  const scanningSameProductAgain = (p.id === lastAddedProductId);
+  lastAddedProductId = p.id;
+
+  // Lock out further reads so the same barcode staying in frame — or a second
+  // accidental scan — can never be recorded twice, and show a checkmark to
+  // confirm the add.
+  scanLocked = true;
+  showScanSuccessMark(p.name);
+  const session = scanSessionId;
+  setTimeout(()=>{
+    if (session !== scanSessionId) return; // scanner was closed/reopened in the meantime
+    if (scanningSameProductAgain){
+      closeScanner();
+      state.view = 'pos';
+      render();
+      return;
+    }
+    hideScanSuccessMark();
+    scanLocked = false;
+    document.getElementById('scan-note').textContent = 'Scanning… hold steady over a barcode';
+    document.getElementById('scan-note').style.color = '#C8CCD8';
+  }, SCAN_CONFIRM_MS);
 }
 
 function flashScanNote(msg, isError){
@@ -1171,8 +1224,31 @@ let html5QrCode = null;
 let scannerCtx = { onDetect:null, continuous:false };
 let currentFacingMode = 'environment';
 
+// A successful scan locks out any further reads (same barcode staying in frame,
+// or a different item bumped into view) until the confirmation finishes, so one
+// physical scan is never recorded twice. scanSessionId invalidates any pending
+// confirmation timer if the scanner gets closed/reopened before it fires.
+let scanLocked = false;
+let scanSessionId = 0;
+let lastAddedProductId = null; // scanning this same product again is treated as "done" and returns home
+
+function showScanSuccessMark(label){
+  const el = document.getElementById('scan-success');
+  const lbl = document.getElementById('scan-success-label');
+  if (lbl) lbl.textContent = label || 'Added';
+  if (el) el.classList.add('show');
+}
+function hideScanSuccessMark(){
+  const el = document.getElementById('scan-success');
+  if (el) el.classList.remove('show');
+}
+
 function openScanner(opts){
   scannerCtx = opts;
+  scanSessionId++;
+  scanLocked = false;
+  lastAddedProductId = null;
+  hideScanSuccessMark();
   document.getElementById('scan-title').textContent = opts.title || 'Scan barcode';
   document.getElementById('scan-sub').textContent = opts.sub || '';
   document.getElementById('scan-note').textContent = 'Requesting camera access…';
@@ -1243,6 +1319,9 @@ function stopCamera(){
 }
 
 function closeScanner(){
+  scanSessionId++;
+  scanLocked = false;
+  hideScanSuccessMark();
   stopCamera();
   document.getElementById('scanner-overlay').classList.remove('open');
   scannerCtx = { onDetect:null, continuous:false };
