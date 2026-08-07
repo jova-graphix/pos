@@ -1217,6 +1217,45 @@ function handleSaleScan(code){
   }, SCAN_CONFIRM_MS);
 }
 
+/* ===================== Scan sound feedback (Web Audio, no audio files needed) ===================== */
+let audioCtx = null;
+function getAudioCtx(){
+  if (!audioCtx){
+    try{ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    catch(e){ return null; }
+  }
+  // Browsers suspend new audio contexts until a user gesture unlocks them —
+  // this is called from the "Scan barcode" click handler, so it's safe to resume here.
+  if (audioCtx.state === 'suspended') audioCtx.resume().catch(()=>{});
+  return audioCtx;
+}
+function playTone(ctx, freq, startTime, duration, gainPeak){
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'sine';
+  osc.frequency.value = freq;
+  gain.gain.setValueAtTime(0, startTime);
+  gain.gain.linearRampToValueAtTime(gainPeak, startTime + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+  osc.connect(gain).connect(ctx.destination);
+  osc.start(startTime);
+  osc.stop(startTime + duration + 0.02);
+}
+function playScanSuccessSound(){
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  playTone(ctx, 880, t, 0.09, 0.18);       // bright two-note "ding-dong" chime
+  playTone(ctx, 1318.5, t + 0.09, 0.12, 0.16);
+}
+function playScanErrorSound(){
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  playTone(ctx, 220, t, 0.14, 0.2);        // low descending buzz
+  playTone(ctx, 160, t + 0.13, 0.18, 0.2);
+}
+
 function flashScanNote(msg, isError){
   const note = document.getElementById('scan-note');
   note.textContent = msg;
@@ -1233,6 +1272,7 @@ function flashScanNote(msg, isError){
     setTimeout(()=>reticle.classList.remove('hit','miss'), 450);
   }
   if (navigator.vibrate) navigator.vibrate(isError ? [40,50,40] : 30);
+  if (isError) playScanErrorSound(); else playScanSuccessSound();
 }
 
 /* ===================== Checkout ===================== */
@@ -1431,6 +1471,7 @@ function openScanner(opts){
   scanLocked = false;
   lastAddedProductId = null;
   hideScanSuccessMark();
+  getAudioCtx(); // unlock audio now, while we're still inside the click gesture, so scan beeps aren't blocked later
   document.getElementById('scan-title').textContent = opts.title || 'Scan barcode';
   document.getElementById('scan-sub').textContent = opts.sub || '';
   document.getElementById('scan-note').textContent = 'Requesting camera access…';
