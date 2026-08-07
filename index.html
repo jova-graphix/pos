@@ -176,8 +176,7 @@
   .p-card .p-name{font-size:13px;font-weight:600;line-height:1.25;}
   .p-card .p-meta{display:flex;justify-content:space-between;align-items:center;}
   .p-card .p-price{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;}
-  .p-stock{font-size:10px;padding:2px 6px;border-radius:100px;background:var(--paper);color:var(--text-2);}
-  .p-stock.low{background:var(--red-bg);color:#C81E1E;}
+  .p-size{font-size:10px;padding:2px 6px;border-radius:100px;background:var(--paper);color:var(--text-2);}
 
   .empty-state{
     flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -228,7 +227,6 @@
   tbody td{padding:12px 16px;border-bottom:1px solid var(--line);font-size:13px;}
   tbody tr:last-child td{border-bottom:none;}
   tbody tr:hover{background:#FAFAFB;}
-  tbody tr.low-row{box-shadow:inset 3px 0 0 var(--amber);}
   .tag{font-size:11px;background:var(--paper);color:var(--text-2);padding:3px 9px;border-radius:100px;}
   .row-actions{display:flex;gap:6px;}
   .icon-btn{width:28px;height:28px;border-radius:8px;border:1px solid var(--line);background:var(--panel);display:flex;align-items:center;justify-content:center;}
@@ -379,7 +377,6 @@
       background:var(--panel);border-radius:12px;box-shadow:var(--shadow);
       margin-bottom:10px;padding:10px 14px;border-bottom:none;
     }
-    tbody tr.low-row{box-shadow:var(--shadow), inset 3px 0 0 var(--amber);}
     tbody td{
       display:flex;align-items:center;justify-content:space-between;gap:12px;
       padding:7px 0;border-bottom:1px dashed var(--line);text-align:right;
@@ -419,7 +416,7 @@
     </button>
     <button class="nav-btn" data-view="inventory">
       <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v2"/><path d="M3 8l1 12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2l1-12"/><path d="M3 8h18"/></svg>
-      Stock
+      Products
     </button>
     <button class="nav-btn" data-view="sales">
       <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>
@@ -551,7 +548,7 @@ let state = {
   view: 'pos',
   products: [],
   sales: [],
-  settings: { shopName: 'My Shop', currency: 'GHS', taxRate: 0, lowStock: 5 },
+  settings: { shopName: 'My Shop', currency: 'GHS', taxRate: 0 },
   cart: [],          // [{productId, qty}]
   posSearch: '',
   productFormMode: 'add',
@@ -561,6 +558,11 @@ let state = {
 };
 
 const genId = () => 'id_' + Date.now().toString(36) + Math.random().toString(36).slice(2,8);
+
+// Predefined size/volume options offered on the product form — covers common
+// apparel sizing and drink/bottle volumes, with a "Custom…" escape hatch for
+// anything else (e.g. weights, pack counts).
+const PRESET_SIZES = ['Small','Medium','Large','Extra Large','250 ml','330 ml','500 ml','750 ml','1 Litre','1.5 Litre','2 Litre','5 Litre','250 g','500 g','1 kg'];
 
 function fmt(n){
   try{ return new Intl.NumberFormat(undefined, { style:'currency', currency: state.settings.currency || 'USD' }).format(n || 0); }
@@ -641,7 +643,7 @@ function render(){
   const titles = {
     pos:['Sell','Scan a barcode or search to start a sale'],
     checkout:['Checkout','Review the cart and take payment'],
-    inventory:['Stock','Manage products, prices and barcodes'],
+    inventory:['Products','Manage products, prices and barcodes'],
     'product-form':[state.productFormMode==='edit'?'Edit product':'Add product','Fill in the details below'],
     sales:['Sales','Completed transactions'],
     settings:['Settings','Shop preferences']
@@ -673,12 +675,12 @@ function renderPOS(){
   );
 
   const cards = filtered.map(p => `
-    <button class="p-card" data-add="${p.id}" ${p.stock<=0?'disabled':''}>
+    <button class="p-card" data-add="${p.id}">
       <div class="p-avatar">${escapeHtml(p.name.slice(0,2).toUpperCase())}</div>
       <div class="p-name">${escapeHtml(p.name)}</div>
       <div class="p-meta">
         <span class="p-price mono">${fmt(p.price)}</span>
-        <span class="p-stock ${p.stock<=state.settings.lowStock?'low':''}">${p.stock<=0?'Out':p.stock+' left'}</span>
+        ${p.size ? `<span class="p-size">${escapeHtml(p.size)}</span>` : ''}
       </div>
     </button>
   `).join('');
@@ -702,7 +704,7 @@ function renderPOS(){
       <input id="pos-search" type="text" placeholder="Search products by name, category or barcode…" value="${escapeAttr(state.posSearch)}">
     </div>
     <div style="margin-top:16px;flex:1;overflow-y:auto;">
-      ${filtered.length ? `<div class="product-grid">${cards}</div>` : (state.products.length ? `<div class="empty-state"><svg fill="none" viewBox="0 0 24 24" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><p>No products match “${escapeHtml(state.posSearch)}”.</p></div>` : `<div class="empty-state"><svg fill="none" viewBox="0 0 24 24" stroke-width="1.5"><path d="M21 8V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v2"/><path d="M3 8l1 12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2l1-12"/><path d="M3 8h18"/></svg><p>No products yet. Add your first product in Stock to start selling.</p></div>`)}
+      ${filtered.length ? `<div class="product-grid">${cards}</div>` : (state.products.length ? `<div class="empty-state"><svg fill="none" viewBox="0 0 24 24" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><p>No products match “${escapeHtml(state.posSearch)}”.</p></div>` : `<div class="empty-state"><svg fill="none" viewBox="0 0 24 24" stroke-width="1.5"><path d="M21 8V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v2"/><path d="M3 8l1 12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2l1-12"/><path d="M3 8h18"/></svg><p>No products yet. Add your first product in Products to start selling.</p></div>`)}
     </div>
     ${itemCount ? `
     <div class="cart-float-wrap">
@@ -773,8 +775,6 @@ function addToCart(productId){
   const p = state.products.find(x=>x.id===productId);
   if (!p) return;
   const inCart = state.cart.find(c=>c.productId===productId);
-  const currentQty = inCart ? inCart.qty : 0;
-  if (currentQty + 1 > p.stock){ showToast(`Only ${p.stock} in stock for ${p.name}`, 'error'); return; }
   if (inCart) inCart.qty += 1;
   else state.cart.push({ productId, qty:1 });
   showToast(`Added ${p.name}`, 'success');
@@ -786,11 +786,11 @@ function renderInventory(){
   const q = state.invSearch.trim().toLowerCase();
   const list = state.products.filter(p => !q || p.name.toLowerCase().includes(q) || (p.barcode||'').includes(q));
   const rows = list.map(p => `
-    <tr class="${p.stock<=state.settings.lowStock?'low-row':''}">
+    <tr>
       <td data-label="Product"><strong>${escapeHtml(p.name)}</strong></td>
       <td data-label="Category"><span class="tag">${escapeHtml(p.category||'Uncategorized')}</span></td>
       <td data-label="Price" class="mono">${fmt(p.price)}</td>
-      <td data-label="Stock" class="mono">${p.stock}${p.stock<=state.settings.lowStock?' <span class="tag" style="background:var(--red-bg);color:#C81E1E;">Low</span>':''}</td>
+      <td data-label="Size">${p.size ? escapeHtml(p.size) : '<span style="color:var(--text-2);">— none —</span>'}</td>
       <td data-label="Barcode" class="mono">${p.barcode ? escapeHtml(p.barcode) : '<span style="color:var(--text-2);">— none —</span>'}</td>
       <td class="row-actions-cell">
         <div class="row-actions">
@@ -807,7 +807,7 @@ function renderInventory(){
     </div>
     ${list.length ? `
     <table>
-      <thead><tr><th>Product</th><th>Category</th><th>Price</th><th>Stock</th><th>Barcode</th><th></th></tr></thead>
+      <thead><tr><th>Product</th><th>Category</th><th>Price</th><th>Size</th><th>Barcode</th><th></th></tr></thead>
       <tbody>${rows}</tbody>
     </table>` : `<div class="empty-state"><svg fill="none" viewBox="0 0 24 24" stroke-width="1.5"><path d="M21 8V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v2"/><path d="M3 8l1 12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2l1-12"/><path d="M3 8h18"/></svg><p>No products found. Add your first product to get started.</p></div>`}
   `;
@@ -816,11 +816,13 @@ function renderInventory(){
 /* ===================== Add / edit product screen ===================== */
 function renderProductForm(){
   const p = state.productFormMode === 'edit' ? state.products.find(x=>x.id===state.productFormId) : null;
+  const existingSize = p ? (p.size || '') : '';
+  const isCustomSize = existingSize && !PRESET_SIZES.includes(existingSize);
   return `
   <div class="checkout-wrap">
     <button class="checkout-back" id="btn-back-to-stock">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
-      Back to stock
+      Back to products
     </button>
     <div style="background:var(--panel);border-radius:var(--radius);box-shadow:var(--shadow);padding:22px;display:flex;flex-direction:column;gap:16px;">
       <div class="field" id="f-name">
@@ -834,10 +836,36 @@ function renderProductForm(){
           <input id="in-price" type="number" min="0" step="0.01" placeholder="0.00" value="${p?p.price:''}">
           <div class="err">Enter a valid price.</div>
         </div>
-        <div class="field" id="f-stock">
-          <label>Stock on hand *</label>
-          <input id="in-stock" type="number" min="0" step="1" placeholder="0" value="${p?p.stock:''}">
-          <div class="err">Enter a valid quantity.</div>
+        <div class="field" id="f-size">
+          <label>Size / Volume</label>
+          <select id="in-size">
+            <option value="" ${!existingSize?'selected':''}>No size</option>
+            <optgroup label="Size">
+              <option value="Small" ${existingSize==='Small'?'selected':''}>Small</option>
+              <option value="Medium" ${existingSize==='Medium'?'selected':''}>Medium</option>
+              <option value="Large" ${existingSize==='Large'?'selected':''}>Large</option>
+              <option value="Extra Large" ${existingSize==='Extra Large'?'selected':''}>Extra Large</option>
+            </optgroup>
+            <optgroup label="Volume">
+              <option value="250 ml" ${existingSize==='250 ml'?'selected':''}>250 ml</option>
+              <option value="330 ml" ${existingSize==='330 ml'?'selected':''}>330 ml</option>
+              <option value="500 ml" ${existingSize==='500 ml'?'selected':''}>500 ml</option>
+              <option value="750 ml" ${existingSize==='750 ml'?'selected':''}>750 ml</option>
+              <option value="1 Litre" ${existingSize==='1 Litre'?'selected':''}>1 Litre</option>
+              <option value="1.5 Litre" ${existingSize==='1.5 Litre'?'selected':''}>1.5 Litre</option>
+              <option value="2 Litre" ${existingSize==='2 Litre'?'selected':''}>2 Litre</option>
+              <option value="5 Litre" ${existingSize==='5 Litre'?'selected':''}>5 Litre</option>
+            </optgroup>
+            <optgroup label="Weight">
+              <option value="250 g" ${existingSize==='250 g'?'selected':''}>250 g</option>
+              <option value="500 g" ${existingSize==='500 g'?'selected':''}>500 g</option>
+              <option value="1 kg" ${existingSize==='1 kg'?'selected':''}>1 kg</option>
+            </optgroup>
+            <option value="__custom__" ${isCustomSize?'selected':''}>Custom…</option>
+          </select>
+          <input id="in-size-custom" type="text" placeholder="Type a custom size or volume" maxlength="30"
+            value="${isCustomSize?escapeAttr(existingSize):''}"
+            style="margin-top:8px;${isCustomSize?'':'display:none;'}">
         </div>
       </div>
       <div class="field">
@@ -916,10 +944,6 @@ function renderSettings(){
           <input id="set-tax" type="number" min="0" step="0.1" value="${s.taxRate}">
         </div>
       </div>
-      <div class="field">
-        <label>Low stock alert threshold</label>
-        <input id="set-lowstock" type="number" min="0" step="1" value="${s.lowStock}">
-      </div>
       <div>
         <button class="btn btn-amber" id="btn-save-settings">Save settings</button>
       </div>
@@ -972,6 +996,12 @@ function bindPageEvents(){
     document.getElementById('btn-back-to-stock').addEventListener('click', ()=>{ state.view='inventory'; render(); });
     document.getElementById('btn-cancel-product').addEventListener('click', ()=>{ state.view='inventory'; render(); });
     document.getElementById('btn-save-product').addEventListener('click', saveProductForm);
+    document.getElementById('in-size').addEventListener('change', (e)=>{
+      const customInput = document.getElementById('in-size-custom');
+      const isCustom = e.target.value === '__custom__';
+      customInput.style.display = isCustom ? '' : 'none';
+      if (isCustom) customInput.focus(); else customInput.value = '';
+    });
     document.getElementById('btn-scan-for-product').addEventListener('click', ()=>{
       openScanner({
         title:'Scan product barcode',
@@ -1002,7 +1032,6 @@ function bindPageEvents(){
       state.settings.shopName = document.getElementById('set-shop').value.trim() || 'My Shop';
       state.settings.currency = document.getElementById('set-currency').value;
       state.settings.taxRate = parseFloat(document.getElementById('set-tax').value) || 0;
-      state.settings.lowStock = parseInt(document.getElementById('set-lowstock').value,10) || 0;
       await saveSettings();
       showToast('Settings saved', 'success');
       render();
@@ -1032,7 +1061,6 @@ function adjustQty(productId, delta){
   if (!ci || !p) return;
   const next = ci.qty + delta;
   if (next <= 0){ state.cart = state.cart.filter(c=>c.productId!==productId); }
-  else if (next > p.stock){ showToast(`Only ${p.stock} in stock`, 'error'); return; }
   else { ci.qty = next; }
   render();
 }
@@ -1057,11 +1085,6 @@ function handleSaleScan(code){
 
   if (!scanningSameProductAgain){
     const inCart = state.cart.find(c=>c.productId===p.id);
-    const currentQty = inCart ? inCart.qty : 0;
-    if (currentQty + 1 > p.stock){
-      flashScanNote(`${p.name} is out of stock`, true);
-      return;
-    }
     if (inCart) inCart.qty += 1; else state.cart.push({ productId:p.id, qty:1 });
     flashScanNote(`Added ${p.name} · ${fmt(p.price)}`, false);
     if (state.view === 'pos') render();
@@ -1121,16 +1144,11 @@ async function checkout(){
   const total = subtotal + tax;
   const sale = { id: genId(), timestamp: Date.now(), items, subtotal, tax, total };
 
-  // decrement stock
-  items.forEach(it=>{
-    const p = state.products.find(x=>x.id===it.productId);
-    if (p) p.stock = Math.max(0, p.stock - it.qty);
-  });
   state.sales.push(sale);
   state.cart = [];
   state.view = 'pos';
 
-  await Promise.all([saveProducts(), saveSales()]);
+  await saveSales();
   render();
   openReceipt(sale.id);
   showToast('Sale completed', 'success');
@@ -1212,7 +1230,8 @@ function goToProductForm(id){
 async function saveProductForm(){
   const name = document.getElementById('in-name').value.trim();
   const price = parseFloat(document.getElementById('in-price').value);
-  const stock = parseInt(document.getElementById('in-stock').value,10);
+  const sizeSelect = document.getElementById('in-size').value;
+  const size = sizeSelect === '__custom__' ? document.getElementById('in-size-custom').value.trim() : sizeSelect;
   const category = document.getElementById('in-category').value.trim();
   const barcode = document.getElementById('in-barcode').value.trim();
   const editingId = state.productFormMode === 'edit' ? state.productFormId : null;
@@ -1221,16 +1240,15 @@ async function saveProductForm(){
   const setErr = (fid, bad) => { document.getElementById(fid).classList.toggle('has-err', bad); if (bad) hasErr = true; };
   setErr('f-name', !name);
   setErr('f-price', !(price >= 0));
-  setErr('f-stock', !(Number.isInteger(stock) && stock >= 0));
   const dupe = barcode && state.products.some(p => barcodesMatch(p.barcode, barcode) && p.id !== editingId);
   setErr('f-barcode', dupe);
   if (hasErr) return;
 
   if (editingId){
     const p = state.products.find(x=>x.id===editingId);
-    Object.assign(p, { name, price, stock, category, barcode });
+    Object.assign(p, { name, price, size, category, barcode });
   } else {
-    state.products.push({ id: genId(), name, price, stock, category, barcode, createdAt: Date.now() });
+    state.products.push({ id: genId(), name, price, size, category, barcode, createdAt: Date.now() });
   }
   await saveProducts();
   showToast('Product saved', 'success');
