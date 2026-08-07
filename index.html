@@ -499,25 +499,50 @@
 
 <div id="toast-container"></div>
 
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <script>
 (function(){
 
 "use strict";
 
+/* ===================== Firebase / Firestore ===================== */
+const firebaseConfig = {
+  apiKey: "AIzaSyAGqeLl7CvGsKiQ8lS8ekt62shCoOW4E1w",
+  authDomain: "smartpos-14a97.firebaseapp.com",
+  projectId: "smartpos-14a97",
+  storageBucket: "smartpos-14a97.firebasestorage.app",
+  messagingSenderId: "704370412051",
+  appId: "1:704370412051:web:26e3ea8e2e3a08923d4de6"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+// Lets the register keep working (reads from cache, queues writes) through a
+// spotty connection, and syncs automatically once it's back — important for a
+// checkout counter that can't just stop working because wifi hiccuped.
+try{ db.enablePersistence({ synchronizeTabs: true }).catch(()=>{ /* unsupported browser or multiple tabs without sync */ }); }
+catch(e){ /* enablePersistence not available */ }
+
 /* ===================== Storage ===================== */
-// Note: true browser localStorage isn't available inside this artifact sandbox,
-// so data is kept in this app's own persistent storage, scoped privately to you
-// (shared:false) — nobody else who opens this app sees or edits it.
+// Backed by Firestore: each key (products / sales / settings) is its own
+// document in the "smartpos" collection, holding the whole value as JSON —
+// this mirrors how the app already saves/loads full arrays at once, so every
+// call site below stays unchanged.
 const Storage = {
   async get(key, fallback){
     try{
-      const r = await window.storage.get(key, false);
-      return r && r.value !== undefined ? JSON.parse(r.value) : fallback;
-    }catch(e){ return fallback; }
+      const snap = await db.collection('smartpos').doc(key).get();
+      const data = snap.exists ? snap.data() : null;
+      return data && data.value !== undefined ? JSON.parse(data.value) : fallback;
+    }catch(e){ console.error('storage get failed', key, e); return fallback; }
   },
   async set(key, value){
-    try{ await window.storage.set(key, JSON.stringify(value), false); }
-    catch(e){ console.error('storage set failed', key, e); showToast('Could not save — changes may be lost', 'error'); }
+    try{
+      await db.collection('smartpos').doc(key).set({
+        value: JSON.stringify(value),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }catch(e){ console.error('storage set failed', key, e); showToast('Could not save — changes may be lost', 'error'); }
   }
 };
 
@@ -1025,26 +1050,31 @@ function handleSaleScan(code){
     flashScanNote(`No product matches "${code}"`, true);
     return;
   }
-  const inCart = state.cart.find(c=>c.productId===p.id);
-  const currentQty = inCart ? inCart.qty : 0;
-  if (currentQty + 1 > p.stock){
-    flashScanNote(`${p.name} is out of stock`, true);
-    return;
-  }
-  if (inCart) inCart.qty += 1; else state.cart.push({ productId:p.id, qty:1 });
-  flashScanNote(`Added ${p.name} · ${fmt(p.price)}`, false);
-  if (state.view === 'pos') render();
 
-  // Scanning the same product again right after is treated as "I'm done" and
-  // returns to Sell; otherwise the camera just resumes for the next product.
+  // Scanning the same product again right after is treated as "I'm done" —
+  // it is NOT recorded a second time, it just confirms and returns to Sell.
   const scanningSameProductAgain = (p.id === lastAddedProductId);
-  lastAddedProductId = p.id;
+
+  if (!scanningSameProductAgain){
+    const inCart = state.cart.find(c=>c.productId===p.id);
+    const currentQty = inCart ? inCart.qty : 0;
+    if (currentQty + 1 > p.stock){
+      flashScanNote(`${p.name} is out of stock`, true);
+      return;
+    }
+    if (inCart) inCart.qty += 1; else state.cart.push({ productId:p.id, qty:1 });
+    flashScanNote(`Added ${p.name} · ${fmt(p.price)}`, false);
+    if (state.view === 'pos') render();
+    lastAddedProductId = p.id;
+  } else {
+    flashScanNote(`${p.name} already added`, false);
+  }
 
   // Lock out further reads so the same barcode staying in frame — or a second
   // accidental scan — can never be recorded twice, and show a checkmark to
-  // confirm the add.
+  // confirm.
   scanLocked = true;
-  showScanSuccessMark(p.name);
+  showScanSuccessMark(scanningSameProductAgain ? 'Done' : p.name);
   const session = scanSessionId;
   setTimeout(()=>{
     if (session !== scanSessionId) return; // scanner was closed/reopened in the meantime
