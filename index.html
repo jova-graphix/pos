@@ -215,6 +215,33 @@
   .tot-row.grand{color:var(--text);font-size:17px;font-weight:700;padding-top:8px;}
   .charge-btn{width:100%;margin-top:12px;padding:13px;font-size:14px;border-radius:11px;}
 
+  .receipt-bottom{
+    background-image: radial-gradient(circle at 8px 12px, transparent 8px, var(--paper) 8.5px);
+    background-size: 16px 16px; background-position: -4px 0; height:12px;
+    background-color:var(--ink);
+  }
+  .tender-divider{border-top:1px dashed var(--line);margin:10px 0 6px;}
+  .tender-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 0;}
+  .tender-row label{font-size:12.5px;color:var(--text-2);font-weight:600;}
+  .tender-input{
+    width:130px;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:14px;
+    border:1px solid var(--line);border-radius:8px;padding:7px 10px;outline:none;background:var(--paper);
+  }
+  .tender-input:focus{border-color:var(--amber);}
+  .tender-chips{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 6px;}
+  .tender-chip{font-size:11px;padding:5px 11px;border-radius:100px;border:1px solid var(--line);background:var(--paper);color:var(--text-2);}
+  .tender-chip:hover{border-color:var(--amber);color:var(--text);}
+  .change-row{display:flex;justify-content:space-between;align-items:baseline;padding:8px 0 2px;font-family:'IBM Plex Mono',monospace;}
+  .change-row .lbl{font-size:12.5px;color:var(--text-2);font-weight:600;font-family:'Inter',sans-serif;}
+  .change-row .val{font-size:17px;font-weight:700;}
+  .change-row .val.ok{color:var(--green);}
+  .change-row .val.short{color:#C81E1E;}
+  .paid-badge{
+    display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;letter-spacing:.06em;
+    color:var(--green);background:var(--green-bg);border:1px solid rgba(29,184,118,.35);
+    padding:3px 9px;border-radius:100px;margin-top:8px;
+  }
+
   /* ---------- Tables ---------- */
   .toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:12px;flex-wrap:wrap;}
   .toolbar-search{border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:13.5px;width:280px;outline:none;background:var(--panel);}
@@ -248,11 +275,13 @@
   .modal-close{width:28px;height:28px;border-radius:8px;border:none;background:var(--paper);display:flex;align-items:center;justify-content:center;color:var(--text-2);font-size:16px;}
   .modal-body{padding:18px 20px;overflow-y:auto;display:flex;flex-direction:column;gap:14px;}
   .modal-foot{padding:16px 20px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end;}
-  .field{display:flex;flex-direction:column;gap:6px;}
+  .field{display:flex;flex-direction:column;gap:6px;min-width:0;}
   .field label{font-size:11.5px;font-weight:600;color:var(--text-2);letter-spacing:.02em;}
   .field input,.field select{
     border:1px solid var(--line);border-radius:9px;padding:10px 12px;font-size:13.5px;outline:none;background:var(--panel);
+    width:100%;max-width:100%;box-sizing:border-box;
   }
+  .field select{appearance:auto;-webkit-appearance:menulist;}
   .field input:focus,.field select:focus{border-color:var(--amber);}
   .field .err{font-size:11px;color:#C81E1E;display:none;}
   .field.has-err input{border-color:#C81E1E;}
@@ -564,6 +593,11 @@ const genId = () => 'id_' + Date.now().toString(36) + Math.random().toString(36)
 // anything else (e.g. weights, pack counts).
 const PRESET_SIZES = ['Small','Medium','Large','Extra Large','250 ml','330 ml','500 ml','750 ml','1 Litre','1.5 Litre','2 Litre','5 Litre','250 g','500 g','1 kg'];
 
+// Baseline category choices offered on the product form, merged with whatever
+// categories are already in use across existing products, plus a "Custom…"
+// escape hatch — the field stays optional either way.
+const BASELINE_CATEGORIES = ['Beverages','Snacks','Bakery','Dairy','Produce','Meat & Seafood','Household','Personal Care','Electronics','Clothing','Stationery','Other'];
+
 function fmt(n){
   try{ return new Intl.NumberFormat(undefined, { style:'currency', currency: state.settings.currency || 'USD' }).format(n || 0); }
   catch(e){ return '$' + (n||0).toFixed(2); }
@@ -716,6 +750,12 @@ function renderPOS(){
   </div>`;
 }
 
+// Cash tendered is transient — not part of the persisted cart/sale state until
+// checkout completes — so it survives cart-quantity re-renders but resets once
+// a sale finishes (or the cashier heads back to the shop to start a new one).
+let cashTendered = null;
+const CASH_DENOMS = [5,10,20,50,100,200,500,1000];
+
 function renderCheckout(){
   const cartHtml = state.cart.length ? state.cart.map(ci=>{
     const p = state.products.find(x=>x.id===ci.productId);
@@ -739,6 +779,9 @@ function renderCheckout(){
   const subtotal = cartSubtotal();
   const tax = subtotal * (state.settings.taxRate/100);
   const total = subtotal + tax;
+  const tendered = cashTendered !== null ? cashTendered : total;
+  const change = tendered - total;
+  const quickUps = CASH_DENOMS.filter(v=>v>total).slice(0,3);
 
   return `
   <div class="checkout-wrap">
@@ -756,10 +799,26 @@ function renderCheckout(){
       <div class="receipt-tot">
         <div class="tot-row"><span>Subtotal</span><span>${fmt(subtotal)}</span></div>
         <div class="tot-row"><span>Tax (${state.settings.taxRate||0}%)</span><span>${fmt(tax)}</span></div>
-        <div class="tot-row grand"><span>Total</span><span>${fmt(total)}</span></div>
-        <button class="btn btn-amber charge-btn" id="btn-charge" ${state.cart.length?'':'disabled'}>Charge ${fmt(total)}</button>
+        <div class="tot-row grand"><span>Amount to pay</span><span>${fmt(total)}</span></div>
+        ${state.cart.length ? `
+        <div class="tender-divider"></div>
+        <div class="tender-row">
+          <label for="cash-tendered">Cash tendered</label>
+          <input id="cash-tendered" class="tender-input" type="number" min="0" step="0.01" inputmode="decimal" value="${tendered.toFixed(2)}">
+        </div>
+        <div class="tender-chips">
+          <button type="button" class="tender-chip" data-tender="${total.toFixed(2)}">Exact</button>
+          ${quickUps.map(v=>`<button type="button" class="tender-chip" data-tender="${v}">${fmt(v)}</button>`).join('')}
+        </div>
+        <div class="change-row">
+          <span class="lbl">${change < -0.004 ? 'Amount short' : 'Change due'}</span>
+          <span class="val ${change < -0.004 ? 'short' : 'ok'}" id="change-due-value">${fmt(Math.abs(change))}</span>
+        </div>
+        ` : ''}
+        <button class="btn btn-amber charge-btn" id="btn-charge" ${(!state.cart.length || change < -0.004)?'disabled':''}>Charge ${fmt(total)}</button>
         ${state.cart.length ? `<button class="btn btn-ghost" id="btn-clear-cart" style="width:100%;margin-top:8px;">Clear sale</button>` : ''}
       </div>
+      <div class="receipt-bottom"></div>
     </div>
   </div>`;
 }
@@ -818,6 +877,10 @@ function renderProductForm(){
   const p = state.productFormMode === 'edit' ? state.products.find(x=>x.id===state.productFormId) : null;
   const existingSize = p ? (p.size || '') : '';
   const isCustomSize = existingSize && !PRESET_SIZES.includes(existingSize);
+  const existingCategory = p ? (p.category || '') : '';
+  const categoryOptions = [...new Set([...BASELINE_CATEGORIES, ...state.products.map(x=>x.category).filter(Boolean)])]
+    .sort((a,b)=>a.localeCompare(b));
+  const isCustomCategory = existingCategory && !categoryOptions.includes(existingCategory);
   return `
   <div class="checkout-wrap">
     <button class="checkout-back" id="btn-back-to-stock">
@@ -868,9 +931,16 @@ function renderProductForm(){
             style="margin-top:8px;${isCustomSize?'':'display:none;'}">
         </div>
       </div>
-      <div class="field">
-        <label>Category</label>
-        <input id="in-category" type="text" placeholder="e.g. Beverages" maxlength="40" value="${p?escapeAttr(p.category||''):''}">
+      <div class="field" id="f-category">
+        <label>Category <span style="font-weight:400;color:var(--text-2);">(optional)</span></label>
+        <select id="in-category-select">
+          <option value="" ${!existingCategory?'selected':''}>No category</option>
+          ${categoryOptions.map(c=>`<option value="${escapeAttr(c)}" ${existingCategory===c?'selected':''}>${escapeHtml(c)}</option>`).join('')}
+          <option value="__custom__" ${isCustomCategory?'selected':''}>Custom…</option>
+        </select>
+        <input id="in-category-custom" type="text" placeholder="Type a new category" maxlength="40"
+          value="${isCustomCategory?escapeAttr(existingCategory):''}"
+          style="margin-top:8px;${isCustomCategory?'':'display:none;'}">
       </div>
       <div class="field" id="f-barcode">
         <label>Barcode <span style="font-weight:400;color:var(--text-2);">(optional — scan or type)</span></label>
@@ -975,13 +1045,19 @@ function bindPageEvents(){
   }
 
   if (state.view === 'checkout'){
-    document.getElementById('btn-back-to-shop').addEventListener('click', ()=>{ state.view='pos'; render(); });
+    document.getElementById('btn-back-to-shop').addEventListener('click', ()=>{ cashTendered = null; state.view='pos'; render(); });
     document.querySelectorAll('[data-qty]').forEach(b=>b.addEventListener('click', ()=> adjustQty(b.dataset.id, parseInt(b.dataset.qty,10))));
     document.querySelectorAll('[data-remove]').forEach(b=>b.addEventListener('click', ()=>{ state.cart = state.cart.filter(c=>c.productId!==b.dataset.remove); render(); }));
+    const tenderInput = document.getElementById('cash-tendered');
+    if (tenderInput) tenderInput.addEventListener('input', updateChangeDisplay);
+    document.querySelectorAll('.tender-chip').forEach(chip=>chip.addEventListener('click', ()=>{
+      const input = document.getElementById('cash-tendered');
+      if (input){ input.value = chip.dataset.tender; updateChangeDisplay(); }
+    }));
     const chargeBtn = document.getElementById('btn-charge');
     if (chargeBtn) chargeBtn.addEventListener('click', checkout);
     const clearBtn = document.getElementById('btn-clear-cart');
-    if (clearBtn) clearBtn.addEventListener('click', ()=>{ state.cart=[]; render(); });
+    if (clearBtn) clearBtn.addEventListener('click', ()=>{ cashTendered = null; state.cart=[]; render(); });
   }
 
   if (state.view === 'inventory'){
@@ -996,12 +1072,16 @@ function bindPageEvents(){
     document.getElementById('btn-back-to-stock').addEventListener('click', ()=>{ state.view='inventory'; render(); });
     document.getElementById('btn-cancel-product').addEventListener('click', ()=>{ state.view='inventory'; render(); });
     document.getElementById('btn-save-product').addEventListener('click', saveProductForm);
-    document.getElementById('in-size').addEventListener('change', (e)=>{
-      const customInput = document.getElementById('in-size-custom');
-      const isCustom = e.target.value === '__custom__';
-      customInput.style.display = isCustom ? '' : 'none';
-      if (isCustom) customInput.focus(); else customInput.value = '';
-    });
+    const bindCustomToggle = (selectId, customId) => {
+      document.getElementById(selectId).addEventListener('change', (e)=>{
+        const customInput = document.getElementById(customId);
+        const isCustom = e.target.value === '__custom__';
+        customInput.style.display = isCustom ? '' : 'none';
+        if (isCustom) customInput.focus(); else customInput.value = '';
+      });
+    };
+    bindCustomToggle('in-size', 'in-size-custom');
+    bindCustomToggle('in-category-select', 'in-category-custom');
     document.getElementById('btn-scan-for-product').addEventListener('click', ()=>{
       openScanner({
         title:'Scan product barcode',
@@ -1053,6 +1133,29 @@ function renderKeepFocus(id){
   render();
   const el2 = document.getElementById(id);
   if (el2){ el2.focus(); if (pos!==null) el2.setSelectionRange(pos,pos); }
+}
+
+// Updates the change-due display and the Charge button's disabled state
+// directly, without a full render() — a full render() would rebuild the cash
+// input and drop focus/cursor position on every keystroke.
+function updateChangeDisplay(){
+  const input = document.getElementById('cash-tendered');
+  const chargeBtn = document.getElementById('btn-charge');
+  const changeEl = document.getElementById('change-due-value');
+  if (!input || !chargeBtn || !changeEl) return;
+  const subtotal = cartSubtotal();
+  const total = subtotal * (1 + state.settings.taxRate/100);
+  let val = parseFloat(input.value);
+  if (!(val >= 0)) val = 0;
+  cashTendered = val;
+  const change = val - total;
+  const short = change < -0.004;
+  changeEl.textContent = fmt(Math.abs(change));
+  changeEl.classList.toggle('ok', !short);
+  changeEl.classList.toggle('short', short);
+  const lblEl = changeEl.previousElementSibling;
+  if (lblEl) lblEl.textContent = short ? 'Amount short' : 'Change due';
+  chargeBtn.disabled = short || !state.cart.length;
 }
 
 function adjustQty(productId, delta){
@@ -1142,11 +1245,21 @@ async function checkout(){
   const subtotal = cartSubtotal();
   const tax = subtotal * (state.settings.taxRate/100);
   const total = subtotal + tax;
-  const sale = { id: genId(), timestamp: Date.now(), items, subtotal, tax, total };
+
+  const tenderInput = document.getElementById('cash-tendered');
+  const tendered = tenderInput ? (parseFloat(tenderInput.value) || 0) : total;
+  if (tendered - total < -0.004){
+    showToast('Cash tendered is less than the amount due', 'error');
+    return;
+  }
+  const change = tendered - total;
+
+  const sale = { id: genId(), timestamp: Date.now(), items, subtotal, tax, total, cashTendered: tendered, change };
 
   state.sales.push(sale);
   state.cart = [];
   state.view = 'pos';
+  cashTendered = null;
 
   await saveSales();
   render();
@@ -1161,11 +1274,16 @@ function openReceipt(saleId){
   if (!s) return;
   currentReceiptId = saleId;
   const body = document.getElementById('receipt-modal-body');
+  const hasTender = s.cashTendered != null;
   body.innerHTML = `
     <div class="receipt-top"></div>
     <div class="receipt-head">
       <h3>${escapeHtml(state.settings.shopName||'My Shop')}</h3>
       <div class="rmeta">#${s.id.slice(-6).toUpperCase()} · ${new Date(s.timestamp).toLocaleString()}</div>
+      <span class="paid-badge">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+        PAID
+      </span>
     </div>
     <div class="receipt-body" style="max-height:300px;">
       ${s.items.map(i=>`<div class="r-item"><div class="r-name">${escapeHtml(i.name)}<small>${i.qty} × ${fmt(i.price)}</small></div><div class="r-line-total">${fmt(i.price*i.qty)}</div></div>`).join('')}
@@ -1173,8 +1291,14 @@ function openReceipt(saleId){
     <div class="receipt-tot" style="border-top:1px solid var(--line);">
       <div class="tot-row"><span>Subtotal</span><span>${fmt(s.subtotal)}</span></div>
       <div class="tot-row"><span>Tax</span><span>${fmt(s.tax)}</span></div>
-      <div class="tot-row grand"><span>Total</span><span>${fmt(s.total)}</span></div>
-    </div>`;
+      <div class="tot-row grand"><span>Amount paid</span><span>${fmt(s.total)}</span></div>
+      ${hasTender ? `
+      <div class="tender-divider"></div>
+      <div class="tot-row"><span>Cash tendered</span><span>${fmt(s.cashTendered)}</span></div>
+      <div class="change-row"><span class="lbl">Change given</span><span class="val ok">${fmt(s.change)}</span></div>
+      ` : ''}
+    </div>
+    <div class="receipt-bottom"></div>`;
   document.getElementById('receipt-overlay').classList.add('open');
 }
 function closeReceipt(){ document.getElementById('receipt-overlay').classList.remove('open'); currentReceiptId = null; }
@@ -1185,6 +1309,7 @@ function printReceipt(saleId){
   if (!s) return;
   const w = window.open('', '_blank', 'width=380,height=640');
   if (!w){ showToast('Allow pop-ups for this site to print', 'error'); return; }
+  const hasTender = s.cashTendered != null;
   const itemsHtml = s.items.map(i=>`
     <div class="ri"><span>${escapeHtml(i.name)} × ${i.qty}</span><span>${fmt(i.price*i.qty)}</span></div>
   `).join('');
@@ -1195,22 +1320,30 @@ function printReceipt(saleId){
       *{box-sizing:border-box;}
       body{font-family:'Courier New',monospace;width:300px;margin:0 auto;padding:18px 14px;color:#000;}
       h2{text-align:center;margin:0 0 2px;font-size:16px;letter-spacing:.02em;}
-      .meta{text-align:center;font-size:11px;margin-bottom:10px;color:#333;}
+      .meta{text-align:center;font-size:11px;margin-bottom:6px;color:#333;}
+      .paid{text-align:center;font-size:11px;font-weight:bold;letter-spacing:.1em;margin-bottom:10px;}
       hr{border:none;border-top:1px dashed #000;margin:10px 0;}
       .ri{display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:4px 0;}
       .tot-row{display:flex;justify-content:space-between;font-size:12px;padding:2px 0;}
       .grand{font-size:14px;font-weight:bold;padding-top:4px;}
+      .change{font-size:13px;font-weight:bold;padding-top:2px;}
       .foot{text-align:center;font-size:11px;margin-top:16px;color:#333;}
       @media print{ body{width:auto;} }
     </style></head><body>
       <h2>${escapeHtml(state.settings.shopName||'My Shop')}</h2>
       <div class="meta">Receipt #${s.id.slice(-6).toUpperCase()}<br>${new Date(s.timestamp).toLocaleString()}</div>
+      <div class="paid">✓ PAID</div>
       <hr>
       ${itemsHtml}
       <hr>
       <div class="tot-row"><span>Subtotal</span><span>${fmt(s.subtotal)}</span></div>
       <div class="tot-row"><span>Tax</span><span>${fmt(s.tax)}</span></div>
       <div class="tot-row grand"><span>TOTAL</span><span>${fmt(s.total)}</span></div>
+      ${hasTender ? `
+      <hr>
+      <div class="tot-row"><span>Cash tendered</span><span>${fmt(s.cashTendered)}</span></div>
+      <div class="tot-row change"><span>Change</span><span>${fmt(s.change)}</span></div>
+      ` : ''}
       <hr>
       <div class="foot">Thank you for your purchase</div>
     </body></html>`);
@@ -1232,7 +1365,8 @@ async function saveProductForm(){
   const price = parseFloat(document.getElementById('in-price').value);
   const sizeSelect = document.getElementById('in-size').value;
   const size = sizeSelect === '__custom__' ? document.getElementById('in-size-custom').value.trim() : sizeSelect;
-  const category = document.getElementById('in-category').value.trim();
+  const categorySelect = document.getElementById('in-category-select').value;
+  const category = categorySelect === '__custom__' ? document.getElementById('in-category-custom').value.trim() : categorySelect;
   const barcode = document.getElementById('in-barcode').value.trim();
   const editingId = state.productFormMode === 'edit' ? state.productFormId : null;
 
