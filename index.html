@@ -93,7 +93,7 @@
     display:flex;align-items:center;justify-content:center;padding:0 4px;
   }
 
-  #page{flex:1 1 auto;overflow:auto;padding:22px 24px 40px;}
+  #page{flex:1 1 auto;overflow:auto;padding:22px 24px 40px;min-height:0;}
 
   /* ---------- Floating cart bar (Sell screen) ---------- */
   .cart-float-wrap{position:sticky;bottom:0;padding-top:14px;margin-top:auto;}
@@ -290,6 +290,48 @@
   .barcode-field input{flex:1;font-family:'IBM Plex Mono',monospace;}
   .two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
 
+  /* ---------- Multi-variant product entry ---------- */
+  .variant-toggle{
+    display:flex;align-items:flex-start;gap:10px;background:var(--paper);border:1px solid var(--line);
+    border-radius:10px;padding:12px 14px;cursor:pointer;user-select:none;
+  }
+  .variant-toggle input{margin-top:2px;width:16px;height:16px;accent-color:var(--amber);flex:0 0 auto;}
+  .variant-toggle .vt-txt strong{display:block;font-size:13px;font-weight:600;}
+  .variant-toggle .vt-txt span{display:block;font-size:11.5px;color:var(--text-2);margin-top:2px;}
+  #variant-section{display:flex;flex-direction:column;gap:10px;}
+  #variant-rows{display:flex;flex-direction:column;gap:10px;}
+  .variant-row{
+    border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--panel);
+    display:grid;grid-template-columns:1fr 100px auto;gap:10px;align-items:start;
+  }
+  .variant-row .vr-field{display:flex;flex-direction:column;gap:6px;min-width:0;}
+  .variant-row .vr-field label{font-size:10.5px;font-weight:600;color:var(--text-2);letter-spacing:.02em;}
+  .variant-row input,.variant-row select{
+    border:1px solid var(--line);border-radius:9px;padding:9px 10px;font-size:13px;outline:none;
+    background:var(--panel);width:100%;max-width:100%;box-sizing:border-box;
+  }
+  .variant-row input:focus,.variant-row select:focus{border-color:var(--amber);}
+  .variant-row.has-err input,.variant-row.has-err select{border-color:#C81E1E;}
+  .variant-row .vr-price{grid-column:2;}
+  .variant-row .vr-barcode{grid-column:1 / span 2;}
+  .variant-row .vr-barcode-field{display:flex;gap:6px;}
+  .variant-row .vr-barcode-field input{flex:1;font-family:'IBM Plex Mono',monospace;}
+  .variant-row .vr-remove{
+    grid-column:3;align-self:start;margin-top:18px;width:28px;height:28px;border-radius:8px;
+    border:1px solid var(--line);background:var(--panel);display:flex;align-items:center;justify-content:center;
+    color:var(--text-2);flex:0 0 auto;
+  }
+  .variant-row .vr-remove:hover{background:var(--red-bg);color:#C81E1E;border-color:transparent;}
+  .variant-row .vr-remove[disabled]{opacity:.35;cursor:not-allowed;}
+  .variant-row .vr-remove[disabled]:hover{background:var(--panel);color:var(--text-2);}
+  .variant-row .vr-size-custom{margin-top:6px;}
+  @media (max-width:520px){
+    .variant-row{grid-template-columns:1fr 1fr;}
+    .variant-row .vr-price{grid-column:2;}
+    .variant-row .vr-barcode{grid-column:1 / span 2;}
+    .variant-row .vr-remove{grid-column:1 / span 2;justify-self:end;margin-top:0;}
+  }
+
   /* ---------- Scanner modal ---------- */
   #scanner-overlay{position:fixed;inset:0;background:rgba(10,11,16,.92);z-index:100;display:none;flex-direction:column;}
   #scanner-overlay.open{display:flex;}
@@ -394,7 +436,7 @@
     .cart-float-wrap{padding-bottom:env(safe-area-inset-bottom);}
 
     /* Nested scroll areas get proper momentum scrolling on iOS */
-    #page,.product-grid,.receipt-body,.modal-body{
+    #page,.pos-scroll,.product-grid,.receipt-body,.modal-body{
       -webkit-overflow-scrolling:touch;overscroll-behavior:contain;
     }
 
@@ -598,6 +640,34 @@ const PRESET_SIZES = ['Small','Medium','Large','Extra Large','250 ml','330 ml','
 // escape hatch — the field stays optional either way.
 const BASELINE_CATEGORIES = ['Beverages','Snacks','Bakery','Dairy','Produce','Meat & Seafood','Household','Personal Care','Electronics','Clothing','Stationery','Other'];
 
+// ---- Multi-variant product entry (add-once, many sizes) ----
+// When adding a product that comes in several sizes/weights/volumes (e.g. a
+// drink in 330ml/500ml/1L, or a t-shirt in S/M/L), productMultiMode lets the
+// person fill in one shared name/category, then list every size with its own
+// price and barcode, and save all of them together in a single "Save" click
+// instead of repeating the whole add-product flow once per size.
+let productMultiMode = false;
+let variantRows = [{ rowId: 1, size:'', price:null, barcode:'' }];
+let variantRowSeq = 1;
+let activeVariantScanRowId = null;
+
+// Reads whatever is currently on screen for each variant row back into
+// variantRows, so state survives a re-render triggered by add/remove-row or
+// a barcode scan (renderProductForm() rebuilds variantRows from this array).
+function syncVariantRowsFromDom(){
+  document.querySelectorAll('.variant-row').forEach(rowEl=>{
+    const rowId = parseInt(rowEl.dataset.rowId, 10);
+    const row = variantRows.find(r=>r.rowId===rowId);
+    if (!row) return;
+    const sizeSelect = rowEl.querySelector('.vr-size');
+    const sizeCustom = rowEl.querySelector('.vr-size-custom');
+    row.size = sizeSelect.value === '__custom__' ? sizeCustom.value.trim() : sizeSelect.value;
+    const priceVal = rowEl.querySelector('.vr-price-input').value;
+    row.price = priceVal === '' ? null : parseFloat(priceVal);
+    row.barcode = rowEl.querySelector('.vr-barcode-input').value.trim();
+  });
+}
+
 function fmt(n){
   try{ return new Intl.NumberFormat(undefined, { style:'currency', currency: state.settings.currency || 'USD' }).format(n || 0); }
   catch(e){ return '$' + (n||0).toFixed(2); }
@@ -723,7 +793,7 @@ function renderPOS(){
   const total = cartSubtotal() * (1 + state.settings.taxRate/100);
 
   return `
-  <div class="pos-left" style="height:100%;display:flex;flex-direction:column;">
+  <div class="pos-left" style="height:100%;min-height:0;display:flex;flex-direction:column;">
     <div class="scan-cta">
       <div class="txt">
         <h2>Scan to sell</h2>
@@ -737,7 +807,7 @@ function renderPOS(){
     <div class="search-row" style="margin-top:16px;">
       <input id="pos-search" type="text" placeholder="Search products by name, category or barcode…" value="${escapeAttr(state.posSearch)}">
     </div>
-    <div style="margin-top:16px;flex:1;overflow-y:auto;">
+    <div class="pos-scroll" style="margin-top:16px;flex:1;min-height:0;overflow-y:auto;">
       ${filtered.length ? `<div class="product-grid">${cards}</div>` : (state.products.length ? `<div class="empty-state"><svg fill="none" viewBox="0 0 24 24" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><p>No products match “${escapeHtml(state.posSearch)}”.</p></div>` : `<div class="empty-state"><svg fill="none" viewBox="0 0 24 24" stroke-width="1.5"><path d="M21 8V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v2"/><path d="M3 8l1 12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2l1-12"/><path d="M3 8h18"/></svg><p>No products yet. Add your first product in Products to start selling.</p></div>`)}
     </div>
     ${itemCount ? `
@@ -873,6 +943,70 @@ function renderInventory(){
 }
 
 /* ===================== Add / edit product screen ===================== */
+
+// Renders the <select> markup for a size/volume/weight picker, shared between
+// the single-product size field and each row in the multi-variant list.
+function sizeSelectOptionsHtml(existingSize){
+  return `
+    <option value="" ${!existingSize?'selected':''}>No size</option>
+    <optgroup label="Size">
+      <option value="Small" ${existingSize==='Small'?'selected':''}>Small</option>
+      <option value="Medium" ${existingSize==='Medium'?'selected':''}>Medium</option>
+      <option value="Large" ${existingSize==='Large'?'selected':''}>Large</option>
+      <option value="Extra Large" ${existingSize==='Extra Large'?'selected':''}>Extra Large</option>
+    </optgroup>
+    <optgroup label="Volume">
+      <option value="250 ml" ${existingSize==='250 ml'?'selected':''}>250 ml</option>
+      <option value="330 ml" ${existingSize==='330 ml'?'selected':''}>330 ml</option>
+      <option value="500 ml" ${existingSize==='500 ml'?'selected':''}>500 ml</option>
+      <option value="750 ml" ${existingSize==='750 ml'?'selected':''}>750 ml</option>
+      <option value="1 Litre" ${existingSize==='1 Litre'?'selected':''}>1 Litre</option>
+      <option value="1.5 Litre" ${existingSize==='1.5 Litre'?'selected':''}>1.5 Litre</option>
+      <option value="2 Litre" ${existingSize==='2 Litre'?'selected':''}>2 Litre</option>
+      <option value="5 Litre" ${existingSize==='5 Litre'?'selected':''}>5 Litre</option>
+    </optgroup>
+    <optgroup label="Weight">
+      <option value="250 g" ${existingSize==='250 g'?'selected':''}>250 g</option>
+      <option value="500 g" ${existingSize==='500 g'?'selected':''}>500 g</option>
+      <option value="1 kg" ${existingSize==='1 kg'?'selected':''}>1 kg</option>
+    </optgroup>
+    <option value="__custom__" ${existingSize==='__custom__'?'selected':''}>Custom…</option>`;
+}
+
+// One row inside the multi-variant list: its own size, price and barcode.
+// Each row becomes a separate product record when the form is saved.
+function variantRowHtml(rowId, data){
+  data = data || {};
+  const existingSize = data.size || '';
+  const isCustomSize = existingSize && !PRESET_SIZES.includes(existingSize);
+  return `
+  <div class="variant-row" id="vr-${rowId}" data-row-id="${rowId}">
+    <div class="vr-field">
+      <label>Size / Volume / Weight *</label>
+      <select class="vr-size" data-row-id="${rowId}">${sizeSelectOptionsHtml(isCustomSize ? '__custom__' : existingSize)}</select>
+      <input type="text" class="vr-size-custom" data-row-id="${rowId}" placeholder="Type a custom size or volume" maxlength="30"
+        value="${isCustomSize?escapeAttr(existingSize):''}" style="${isCustomSize?'':'display:none;'}">
+    </div>
+    <div class="vr-field vr-price">
+      <label>Price (₵) *</label>
+      <input type="number" class="vr-price-input" data-row-id="${rowId}" min="0" step="0.01" placeholder="0.00" value="${data.price!=null?data.price:''}">
+    </div>
+    <button type="button" class="vr-remove" data-remove-row="${rowId}" title="Remove this size">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>
+    <div class="vr-field vr-barcode">
+      <label>Barcode <span style="font-weight:400;">(optional)</span></label>
+      <div class="vr-barcode-field">
+        <input type="text" class="vr-barcode-input" data-row-id="${rowId}" placeholder="No barcode" maxlength="40" value="${escapeAttr(data.barcode||'')}">
+        <button class="btn btn-dark btn-sm" data-scan-row="${rowId}" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="7" width="18" height="10" rx="1"/><path d="M7 7v10M11 7v10M17 7v10"/></svg>
+          Scan
+        </button>
+      </div>
+    </div>
+  </div>`;
+}
+
 function renderProductForm(){
   const p = state.productFormMode === 'edit' ? state.products.find(x=>x.id===state.productFormId) : null;
   const existingSize = p ? (p.size || '') : '';
@@ -881,6 +1015,12 @@ function renderProductForm(){
   const categoryOptions = [...new Set([...BASELINE_CATEGORIES, ...state.products.map(x=>x.category).filter(Boolean)])]
     .sort((a,b)=>a.localeCompare(b));
   const isCustomCategory = existingCategory && !categoryOptions.includes(existingCategory);
+  const isAddMode = state.productFormMode !== 'edit';
+
+  // Reset the in-progress variant rows whenever we land fresh on the "add" form.
+  if (isAddMode && !productMultiMode) variantRows = [{ rowId: 1, size:'', price:null, barcode:'' }];
+  variantRowSeq = variantRows.length ? Math.max(...variantRows.map(r=>r.rowId)) : 1;
+
   return `
   <div class="checkout-wrap">
     <button class="checkout-back" id="btn-back-to-stock">
@@ -890,47 +1030,55 @@ function renderProductForm(){
     <div style="background:var(--panel);border-radius:var(--radius);box-shadow:var(--shadow);padding:22px;display:flex;flex-direction:column;gap:16px;">
       <div class="field" id="f-name">
         <label>Product name *</label>
-        <input id="in-name" type="text" placeholder="e.g. Colombian Coffee 250g" maxlength="80" value="${p?escapeAttr(p.name):''}">
+        <input id="in-name" type="text" placeholder="e.g. Colombian Coffee" maxlength="80" value="${p?escapeAttr(p.name):''}">
         <div class="err">Enter a product name.</div>
       </div>
-      <div class="two-col">
-        <div class="field" id="f-price">
-          <label>Price (₵) *</label>
-          <input id="in-price" type="number" min="0" step="0.01" placeholder="0.00" value="${p?p.price:''}">
-          <div class="err">Enter a valid price.</div>
+
+      ${isAddMode ? `
+      <label class="variant-toggle">
+        <input type="checkbox" id="in-multi-toggle" ${productMultiMode?'checked':''}>
+        <span class="vt-txt">
+          <strong>This product comes in multiple sizes, weights or volumes</strong>
+          <span>e.g. Small / Medium / Large, or 250g / 500g / 1kg — add every size once and save them all together</span>
+        </span>
+      </label>` : ''}
+
+      <div id="single-size-section" style="display:${(isAddMode && productMultiMode)?'none':'flex'};flex-direction:column;gap:16px;">
+        <div class="two-col">
+          <div class="field" id="f-price">
+            <label>Price (₵) *</label>
+            <input id="in-price" type="number" min="0" step="0.01" placeholder="0.00" value="${p?p.price:''}">
+            <div class="err">Enter a valid price.</div>
+          </div>
+          <div class="field" id="f-size">
+            <label>Size / Volume</label>
+            <select id="in-size">${sizeSelectOptionsHtml(isCustomSize?'__custom__':existingSize)}</select>
+            <input id="in-size-custom" type="text" placeholder="Type a custom size or volume" maxlength="30"
+              value="${isCustomSize?escapeAttr(existingSize):''}"
+              style="margin-top:8px;${isCustomSize?'':'display:none;'}">
+          </div>
         </div>
-        <div class="field" id="f-size">
-          <label>Size / Volume</label>
-          <select id="in-size">
-            <option value="" ${!existingSize?'selected':''}>No size</option>
-            <optgroup label="Size">
-              <option value="Small" ${existingSize==='Small'?'selected':''}>Small</option>
-              <option value="Medium" ${existingSize==='Medium'?'selected':''}>Medium</option>
-              <option value="Large" ${existingSize==='Large'?'selected':''}>Large</option>
-              <option value="Extra Large" ${existingSize==='Extra Large'?'selected':''}>Extra Large</option>
-            </optgroup>
-            <optgroup label="Volume">
-              <option value="250 ml" ${existingSize==='250 ml'?'selected':''}>250 ml</option>
-              <option value="330 ml" ${existingSize==='330 ml'?'selected':''}>330 ml</option>
-              <option value="500 ml" ${existingSize==='500 ml'?'selected':''}>500 ml</option>
-              <option value="750 ml" ${existingSize==='750 ml'?'selected':''}>750 ml</option>
-              <option value="1 Litre" ${existingSize==='1 Litre'?'selected':''}>1 Litre</option>
-              <option value="1.5 Litre" ${existingSize==='1.5 Litre'?'selected':''}>1.5 Litre</option>
-              <option value="2 Litre" ${existingSize==='2 Litre'?'selected':''}>2 Litre</option>
-              <option value="5 Litre" ${existingSize==='5 Litre'?'selected':''}>5 Litre</option>
-            </optgroup>
-            <optgroup label="Weight">
-              <option value="250 g" ${existingSize==='250 g'?'selected':''}>250 g</option>
-              <option value="500 g" ${existingSize==='500 g'?'selected':''}>500 g</option>
-              <option value="1 kg" ${existingSize==='1 kg'?'selected':''}>1 kg</option>
-            </optgroup>
-            <option value="__custom__" ${isCustomSize?'selected':''}>Custom…</option>
-          </select>
-          <input id="in-size-custom" type="text" placeholder="Type a custom size or volume" maxlength="30"
-            value="${isCustomSize?escapeAttr(existingSize):''}"
-            style="margin-top:8px;${isCustomSize?'':'display:none;'}">
+        <div class="field" id="f-barcode">
+          <label>Barcode <span style="font-weight:400;color:var(--text-2);">(optional — scan or type)</span></label>
+          <div class="barcode-field">
+            <input id="in-barcode" type="text" placeholder="No barcode" maxlength="40" value="${p?escapeAttr(p.barcode||''):''}">
+            <button class="btn btn-dark btn-sm" id="btn-scan-for-product" type="button">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="7" width="18" height="10" rx="1"/><path d="M7 7v10M11 7v10M17 7v10"/></svg>
+              Scan
+            </button>
+          </div>
+          <div class="err">That barcode is already used by another product.</div>
         </div>
       </div>
+
+      ${isAddMode ? `
+      <div id="variant-section" style="${productMultiMode?'':'display:none;'}">
+        <div id="variant-rows">${variantRows.map(r=>variantRowHtml(r.rowId, r)).join('')}</div>
+        <div>
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-add-variant-row">+ Add another size</button>
+        </div>
+      </div>` : ''}
+
       <div class="field" id="f-category">
         <label>Category <span style="font-weight:400;color:var(--text-2);">(optional)</span></label>
         <select id="in-category-select">
@@ -942,20 +1090,10 @@ function renderProductForm(){
           value="${isCustomCategory?escapeAttr(existingCategory):''}"
           style="margin-top:8px;${isCustomCategory?'':'display:none;'}">
       </div>
-      <div class="field" id="f-barcode">
-        <label>Barcode <span style="font-weight:400;color:var(--text-2);">(optional — scan or type)</span></label>
-        <div class="barcode-field">
-          <input id="in-barcode" type="text" placeholder="No barcode" maxlength="40" value="${p?escapeAttr(p.barcode||''):''}">
-          <button class="btn btn-dark btn-sm" id="btn-scan-for-product" type="button">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="7" width="18" height="10" rx="1"/><path d="M7 7v10M11 7v10M17 7v10"/></svg>
-            Scan
-          </button>
-        </div>
-        <div class="err">That barcode is already used by another product.</div>
-      </div>
+
       <div style="display:flex;gap:10px;justify-content:flex-end;padding-top:6px;border-top:1px solid var(--line);margin-top:2px;padding-top:16px;">
         <button class="btn btn-ghost" id="btn-cancel-product">Cancel</button>
-        <button class="btn btn-amber" id="btn-save-product">Save product</button>
+        <button class="btn btn-amber" id="btn-save-product">${productMultiMode?'Save all sizes':'Save product'}</button>
       </div>
     </div>
   </div>`;
@@ -1073,7 +1211,9 @@ function bindPageEvents(){
     document.getElementById('btn-cancel-product').addEventListener('click', ()=>{ state.view='inventory'; render(); });
     document.getElementById('btn-save-product').addEventListener('click', saveProductForm);
     const bindCustomToggle = (selectId, customId) => {
-      document.getElementById(selectId).addEventListener('change', (e)=>{
+      const sel = document.getElementById(selectId);
+      if (!sel) return;
+      sel.addEventListener('change', (e)=>{
         const customInput = document.getElementById(customId);
         const isCustom = e.target.value === '__custom__';
         customInput.style.display = isCustom ? '' : 'none';
@@ -1082,7 +1222,8 @@ function bindPageEvents(){
     };
     bindCustomToggle('in-size', 'in-size-custom');
     bindCustomToggle('in-category-select', 'in-category-custom');
-    document.getElementById('btn-scan-for-product').addEventListener('click', ()=>{
+    const scanBtn = document.getElementById('btn-scan-for-product');
+    if (scanBtn) scanBtn.addEventListener('click', ()=>{
       openScanner({
         title:'Scan product barcode',
         sub:'Line the barcode up inside the frame',
@@ -1101,6 +1242,67 @@ function bindPageEvents(){
         }
       });
     });
+
+    // ---- Multi-variant (add-once, many sizes) controls ----
+    const multiToggle = document.getElementById('in-multi-toggle');
+    if (multiToggle) multiToggle.addEventListener('change', (e)=>{
+      productMultiMode = e.target.checked;
+      if (productMultiMode && !variantRows.length){
+        variantRows = [{ rowId: 1, size:'', price:null, barcode:'' }];
+      }
+      render();
+    });
+
+    const addRowBtn = document.getElementById('btn-add-variant-row');
+    if (addRowBtn) addRowBtn.addEventListener('click', ()=>{
+      syncVariantRowsFromDom();
+      variantRowSeq++;
+      variantRows.push({ rowId: variantRowSeq, size:'', price:null, barcode:'' });
+      render();
+    });
+
+    document.querySelectorAll('[data-remove-row]').forEach(btn=>btn.addEventListener('click', ()=>{
+      if (variantRows.length <= 1) return; // always keep at least one size row
+      syncVariantRowsFromDom();
+      const rowId = parseInt(btn.dataset.removeRow, 10);
+      variantRows = variantRows.filter(r=>r.rowId!==rowId);
+      render();
+    }));
+    // Reflect the "at least one row" rule in the UI without a full re-render.
+    document.querySelectorAll('[data-remove-row]').forEach(btn=>{ btn.disabled = variantRows.length <= 1; });
+
+    document.querySelectorAll('.vr-size').forEach(sel=>sel.addEventListener('change', (e)=>{
+      const rowId = e.target.dataset.rowId;
+      const customInput = document.querySelector(`.vr-size-custom[data-row-id="${rowId}"]`);
+      const isCustom = e.target.value === '__custom__';
+      customInput.style.display = isCustom ? '' : 'none';
+      if (isCustom) customInput.focus(); else customInput.value = '';
+    }));
+
+    document.querySelectorAll('[data-scan-row]').forEach(btn=>btn.addEventListener('click', ()=>{
+      activeVariantScanRowId = btn.dataset.scanRow;
+      syncVariantRowsFromDom();
+      openScanner({
+        title:'Scan barcode for this size',
+        sub:'Line the barcode up inside the frame',
+        continuous:true,
+        onDetect:(code)=>{
+          if (scanLocked) return;
+          scanLocked = true;
+          const row = variantRows.find(r=>String(r.rowId)===String(activeVariantScanRowId));
+          if (row) row.barcode = code;
+          const liveInput = document.querySelector(`.vr-barcode-input[data-row-id="${activeVariantScanRowId}"]`);
+          if (liveInput) liveInput.value = code;
+          showScanSuccessMark('Captured');
+          const session = scanSessionId;
+          setTimeout(()=>{
+            if (session !== scanSessionId) return;
+            closeScanner();
+            showToast('Barcode captured');
+          }, 900);
+        }
+      });
+    }));
   }
 
   if (state.view === 'sales'){
@@ -1397,22 +1599,70 @@ function goToProductForm(id){
   state.productFormMode = id ? 'edit' : 'add';
   state.productFormId = id;
   state.view = 'product-form';
+  // Start every visit to the add-product screen with a clean single row —
+  // any in-progress multi-size list from a previous visit is discarded.
+  productMultiMode = false;
+  variantRows = [{ rowId: 1, size:'', price:null, barcode:'' }];
+  variantRowSeq = 1;
   render();
 }
 
 async function saveProductForm(){
   const name = document.getElementById('in-name').value.trim();
-  const price = parseFloat(document.getElementById('in-price').value);
-  const sizeSelect = document.getElementById('in-size').value;
-  const size = sizeSelect === '__custom__' ? document.getElementById('in-size-custom').value.trim() : sizeSelect;
   const categorySelect = document.getElementById('in-category-select').value;
   const category = categorySelect === '__custom__' ? document.getElementById('in-category-custom').value.trim() : categorySelect;
-  const barcode = document.getElementById('in-barcode').value.trim();
   const editingId = state.productFormMode === 'edit' ? state.productFormId : null;
 
   let hasErr = false;
   const setErr = (fid, bad) => { document.getElementById(fid).classList.toggle('has-err', bad); if (bad) hasErr = true; };
   setErr('f-name', !name);
+
+  if (state.productFormMode !== 'edit' && productMultiMode){
+    // ---- Save every size/weight/volume as its own product, in one go ----
+    syncVariantRowsFromDom();
+
+    let rowHasErr = false;
+    const seenBarcodes = new Map(); // normalized barcode -> row index, to catch dupes within this batch
+    variantRows.forEach((row, idx)=>{
+      const rowEl = document.getElementById('vr-' + row.rowId);
+      const priceBad = !(row.price >= 0);
+      const sizeBad = !row.size;
+      let barcodeBad = false;
+      if (row.barcode){
+        const dupeInProducts = state.products.some(p => barcodesMatch(p.barcode, row.barcode));
+        const dupeInBatch = [...seenBarcodes.keys()].some(b => barcodesMatch(b, row.barcode));
+        barcodeBad = dupeInProducts || dupeInBatch;
+        seenBarcodes.set(row.barcode, idx);
+      }
+      if (rowEl) rowEl.classList.toggle('has-err', priceBad || sizeBad || barcodeBad);
+      if (priceBad || sizeBad || barcodeBad) rowHasErr = true;
+    });
+    if (rowHasErr) hasErr = true;
+    if (hasErr){
+      if (rowHasErr) showToast('Fix the highlighted sizes below', 'error');
+      return;
+    }
+
+    const createdAt = Date.now();
+    variantRows.forEach(row=>{
+      state.products.push({ id: genId(), name, price: row.price, size: row.size, category, barcode: row.barcode, createdAt });
+    });
+    await saveProducts();
+    showToast(`${variantRows.length} product${variantRows.length>1?'s':''} saved`, 'success');
+    productMultiMode = false;
+    variantRows = [{ rowId: 1, size:'', price:null, barcode:'' }];
+    variantRowSeq = 1;
+    state.view = 'inventory';
+    render();
+    return;
+  }
+
+  // ---- Single product add/edit (original flow) ----
+  const price = parseFloat(document.getElementById('in-price').value);
+  const sizeSelect = document.getElementById('in-size').value;
+  const size = sizeSelect === '__custom__' ? document.getElementById('in-size-custom').value.trim() : sizeSelect;
+  const barcode = document.getElementById('in-barcode').value.trim();
+
   setErr('f-price', !(price >= 0));
   const dupe = barcode && state.products.some(p => barcodesMatch(p.barcode, barcode) && p.id !== editingId);
   setErr('f-barcode', dupe);
