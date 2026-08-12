@@ -161,6 +161,9 @@
     display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;
     overflow-y:auto;padding-bottom:20px;
   }
+  .pos-scroll{
+    -webkit-overflow-scrolling:touch;overscroll-behavior:contain;
+  }
   .p-card{
     background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;
     display:flex;flex-direction:column;gap:8px;text-align:left;transition:border-color .12s, transform .08s;
