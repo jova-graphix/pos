@@ -93,7 +93,7 @@
     display:flex;align-items:center;justify-content:center;padding:0 4px;
   }
 
-  #page{flex:1 1 auto;overflow:auto;padding:22px 24px 40px;min-height:0;}
+  #page{flex:1 1 auto;overflow:auto;padding:22px 24px 40px;min-height:0;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;}
 
   /* ---------- Floating cart bar (Sell screen) ---------- */
   .cart-float-wrap{position:sticky;bottom:0;padding-top:14px;margin-top:auto;}
@@ -162,7 +162,7 @@
     overflow-y:auto;padding-bottom:20px;
   }
   .pos-scroll{
-    -webkit-overflow-scrolling:touch;overscroll-behavior:contain;
+    -webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;
   }
   .p-card{
     background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;
@@ -772,7 +772,30 @@ function render(){
   badge.style.display = itemCount ? 'flex' : 'none';
 
   bindPageEvents();
+  adjustScrollHeights();
 }
+
+// Pins scrollable areas to an explicit pixel height instead of relying on
+// nested flexbox min-height propagation, which some browsers/hosts render
+// inconsistently. This guarantees overflow:auto has a real, bounded box to
+// work against no matter what the surrounding chrome looks like.
+function adjustScrollHeights(){
+  const BOTTOM_BREATHING_ROOM = 24;
+  const pageEl = document.getElementById('page');
+  if (pageEl){
+    const top = pageEl.getBoundingClientRect().top;
+    pageEl.style.height = Math.max(window.innerHeight - top, 200) + 'px';
+    pageEl.style.overflowY = 'auto';
+  }
+  const scrollEl = document.querySelector('.pos-scroll');
+  if (scrollEl){
+    const top = scrollEl.getBoundingClientRect().top;
+    scrollEl.style.maxHeight = Math.max(window.innerHeight - top - BOTTOM_BREATHING_ROOM, 120) + 'px';
+    scrollEl.style.overflowY = 'auto';
+  }
+}
+window.addEventListener('resize', adjustScrollHeights);
+window.addEventListener('orientationchange', adjustScrollHeights);
 
 /* ===================== POS view ===================== */
 function renderPOS(){
