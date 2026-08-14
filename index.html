@@ -159,10 +159,7 @@
 
   .product-grid{
     display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;
-    overflow-y:auto;padding-bottom:20px;
-  }
-  .pos-scroll{
-    -webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;
+    padding-bottom:20px;
   }
   .p-card{
     background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;
@@ -473,6 +470,10 @@
     #page{padding:16px 14px 28px;}
     .scan-cta{flex-direction:column;align-items:flex-start;gap:12px;}
     .scan-cta button{width:100%;}
+    .product-grid{grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px;}
+    .p-card{padding:8px;gap:6px;}
+    .p-card .p-name{font-size:12px;}
+    .p-avatar{aspect-ratio:2.2;font-size:16px;}
   }
 </style>
 </head>
@@ -772,36 +773,7 @@ function render(){
   badge.style.display = itemCount ? 'flex' : 'none';
 
   bindPageEvents();
-  adjustScrollHeights();
 }
-
-// Pins scrollable areas to an explicit pixel height instead of relying on
-// nested flexbox min-height propagation, which some browsers/hosts render
-// inconsistently. This guarantees overflow:auto has a real, bounded box to
-// work against no matter what the surrounding chrome looks like.
-function adjustScrollHeights(){
-  const BOTTOM_BREATHING_ROOM = 24;
-  const pageEl = document.getElementById('page');
-  const mainCol = document.getElementById('main-col');
-  // Measure against #main-col's own bottom edge, not window.innerHeight —
-  // on mobile the bottom tab bar is a sibling of #main-col that already
-  // claims its own slice of the screen, so window.innerHeight overshoots
-  // by exactly that tab bar's height and hides the tail of the list behind it.
-  const availableBottom = mainCol ? mainCol.getBoundingClientRect().bottom : window.innerHeight;
-  if (pageEl){
-    const top = pageEl.getBoundingClientRect().top;
-    pageEl.style.height = Math.max(availableBottom - top, 200) + 'px';
-    pageEl.style.overflowY = 'auto';
-  }
-  const scrollEl = document.querySelector('.pos-scroll');
-  if (scrollEl){
-    const top = scrollEl.getBoundingClientRect().top;
-    scrollEl.style.maxHeight = Math.max(availableBottom - top - BOTTOM_BREATHING_ROOM, 120) + 'px';
-    scrollEl.style.overflowY = 'auto';
-  }
-}
-window.addEventListener('resize', adjustScrollHeights);
-window.addEventListener('orientationchange', adjustScrollHeights);
 
 /* ===================== POS view ===================== */
 function renderPOS(){
@@ -825,7 +797,7 @@ function renderPOS(){
   const total = cartSubtotal() * (1 + state.settings.taxRate/100);
 
   return `
-  <div class="pos-left" style="height:100%;min-height:0;display:flex;flex-direction:column;">
+  <div class="pos-left" style="display:flex;flex-direction:column;">
     <div class="scan-cta">
       <div class="txt">
         <h2>Scan to sell</h2>
@@ -839,7 +811,7 @@ function renderPOS(){
     <div class="search-row" style="margin-top:16px;">
       <input id="pos-search" type="text" placeholder="Search products by name, category or barcode…" value="${escapeAttr(state.posSearch)}">
     </div>
-    <div class="pos-scroll" style="margin-top:16px;flex:1;min-height:0;overflow-y:auto;">
+    <div style="margin-top:16px;">
       ${filtered.length ? `<div class="product-grid">${cards}</div>` : (state.products.length ? `<div class="empty-state"><svg fill="none" viewBox="0 0 24 24" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><p>No products match “${escapeHtml(state.posSearch)}”.</p></div>` : `<div class="empty-state"><svg fill="none" viewBox="0 0 24 24" stroke-width="1.5"><path d="M21 8V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v2"/><path d="M3 8l1 12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2l1-12"/><path d="M3 8h18"/></svg><p>No products yet. Add your first product in Products to start selling.</p></div>`)}
     </div>
     ${itemCount ? `
