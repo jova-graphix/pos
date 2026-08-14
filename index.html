@@ -782,15 +782,21 @@ function render(){
 function adjustScrollHeights(){
   const BOTTOM_BREATHING_ROOM = 24;
   const pageEl = document.getElementById('page');
+  const mainCol = document.getElementById('main-col');
+  // Measure against #main-col's own bottom edge, not window.innerHeight —
+  // on mobile the bottom tab bar is a sibling of #main-col that already
+  // claims its own slice of the screen, so window.innerHeight overshoots
+  // by exactly that tab bar's height and hides the tail of the list behind it.
+  const availableBottom = mainCol ? mainCol.getBoundingClientRect().bottom : window.innerHeight;
   if (pageEl){
     const top = pageEl.getBoundingClientRect().top;
-    pageEl.style.height = Math.max(window.innerHeight - top, 200) + 'px';
+    pageEl.style.height = Math.max(availableBottom - top, 200) + 'px';
     pageEl.style.overflowY = 'auto';
   }
   const scrollEl = document.querySelector('.pos-scroll');
   if (scrollEl){
     const top = scrollEl.getBoundingClientRect().top;
-    scrollEl.style.maxHeight = Math.max(window.innerHeight - top - BOTTOM_BREATHING_ROOM, 120) + 'px';
+    scrollEl.style.maxHeight = Math.max(availableBottom - top - BOTTOM_BREATHING_ROOM, 120) + 'px';
     scrollEl.style.overflowY = 'auto';
   }
 }
