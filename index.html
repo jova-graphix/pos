@@ -137,8 +137,8 @@
   .pos-right{width:360px;flex:0 0 auto;height:100%;}
 
   .scan-cta{
-    background:var(--ink);border-radius:var(--radius);padding:18px 20px;color:#fff;
-    display:flex;align-items:center;justify-content:space-between;gap:16px;
+    background:var(--ink);border-radius:var(--radius);padding:28px 30px;color:#fff;
+    display:flex;align-items:center;justify-content:space-between;gap:24px;
     box-shadow:var(--shadow);position:relative;overflow:hidden;
   }
   .scan-cta::after{
@@ -146,9 +146,33 @@
     background:repeating-linear-gradient(90deg, rgba(255,255,255,.05) 0 2px, transparent 2px 6px, rgba(255,255,255,.05) 6px 7px, transparent 7px 13px);
     pointer-events:none;
   }
-  .scan-cta .txt h2{margin:0 0 4px;font-size:16px;}
-  .scan-cta .txt p{margin:0;font-size:12.5px;color:#A7ACC0;}
-  .scan-cta button{position:relative;z-index:1;white-space:nowrap;}
+  .scan-cta .scan-beam{
+    position:absolute;left:0;right:0;top:8%;height:2px;
+    background:linear-gradient(90deg, transparent, var(--amber) 18%, var(--amber) 82%, transparent);
+    box-shadow:0 0 14px 2px rgba(240,162,2,.55);
+    animation:scanSweep 3.4s cubic-bezier(.45,0,.55,1) infinite;
+    pointer-events:none;
+  }
+  @keyframes scanSweep{
+    0%{top:8%;opacity:0;}
+    10%{opacity:1;}
+    50%{top:90%;opacity:1;}
+    62%{opacity:0;}
+    100%{top:90%;opacity:0;}
+  }
+  @media (prefers-reduced-motion: reduce){
+    .scan-cta .scan-beam{animation:none;display:none;}
+  }
+  .scan-cta .sc-left{display:flex;align-items:center;gap:18px;position:relative;z-index:1;min-width:0;}
+  .scan-cta .sc-badge{
+    width:52px;height:52px;border-radius:14px;flex:0 0 auto;
+    background:rgba(240,162,2,.14);border:1px solid rgba(240,162,2,.4);
+    display:flex;align-items:center;justify-content:center;color:var(--amber);
+  }
+  .scan-cta .sc-badge svg{width:26px;height:26px;}
+  .scan-cta .txt h2{margin:0 0 5px;font-size:20px;letter-spacing:-.01em;}
+  .scan-cta .txt p{margin:0;font-size:13px;color:#A7ACC0;line-height:1.5;max-width:36ch;}
+  .scan-cta button{position:relative;z-index:1;white-space:nowrap;padding:13px 24px;font-size:14px;flex:0 0 auto;}
 
   .search-row{display:flex;gap:10px;}
   .search-row input{
@@ -468,8 +492,13 @@
     #topbar .sub{display:none;}
     #clock{display:none;}
     #page{padding:16px 14px 28px;}
-    .scan-cta{flex-direction:column;align-items:flex-start;gap:12px;}
-    .scan-cta button{width:100%;}
+    .scan-cta{flex-direction:column;align-items:stretch;padding:22px 20px;gap:18px;}
+    .scan-cta .sc-left{gap:14px;}
+    .scan-cta .sc-badge{width:44px;height:44px;border-radius:12px;}
+    .scan-cta .sc-badge svg{width:22px;height:22px;}
+    .scan-cta .txt h2{font-size:17px;}
+    .scan-cta .txt p{font-size:12.5px;max-width:none;}
+    .scan-cta button{width:100%;padding:13px 20px;}
     .product-grid{grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px;}
     .p-card{padding:8px;gap:6px;}
     .p-card .p-name{font-size:12px;}
@@ -510,6 +539,7 @@
         <div class="sub" id="page-sub">Scan a barcode or search to start a sale</div>
       </div>
       <div id="topbar-right">
+        <div id="build-tag" style="font-size:9.5px;color:#B8BCCB;font-family:'IBM Plex Mono',monospace;letter-spacing:.02em;">build 2026-08-14-4</div>
         <div id="clock" class="mono"></div>
         <button class="cart-btn" id="topbar-cart-btn">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
@@ -799,9 +829,15 @@ function renderPOS(){
   return `
   <div class="pos-left" style="display:flex;flex-direction:column;">
     <div class="scan-cta">
-      <div class="txt">
-        <h2>Scan to sell</h2>
-        <p>Use your camera as a barcode scanner — items are added instantly</p>
+      <div class="scan-beam"></div>
+      <div class="sc-left">
+        <div class="sc-badge">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="10" rx="1"/><path d="M7 7v10M11 7v10M17 7v10"/></svg>
+        </div>
+        <div class="txt">
+          <h2>Scan to sell</h2>
+          <p>Point your camera at a barcode — the item lands in the cart instantly.</p>
+        </div>
       </div>
       <button class="btn btn-amber" id="btn-scan-sale">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="7" width="18" height="10" rx="1"/><path d="M7 7v10M11 7v10M17 7v10"/></svg>
